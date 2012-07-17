@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
+using System.IO;
 
 using Nemerle.Xml;
 using Nemerle.WUI.Reactive;
@@ -57,6 +58,14 @@ namespace Nemerle.WUI.Reactive
     MakePage[ViewModel](pagePath : string, viewModel : ViewModel, makeView : ViewModel -> XElement) : string
       where ViewModel: IViewModel
     {
+      def html = MakePageHtml(viewModel, makeView);
+      File.WriteAllText(pagePath, html);
+      pagePath
+    }
+    
+    public MakePageHtml[ViewModel](viewModel : ViewModel, makeView : ViewModel -> XElement) : string
+      where ViewModel: IViewModel
+    {
       def testView = makeView(viewModel);
       def page = Template.Load("PageTemplate.htm");
       
@@ -70,10 +79,9 @@ namespace Nemerle.WUI.Reactive
     /*]]>*/
   </script>
       #>);
-      page.SetContent("Scripr", script);
+      page.SetContent("Script", script);
       
-      page.Save(pagePath, SaveOptions.DisableFormatting);
-      pagePath
+      page.ToString();
     }
   }
 }

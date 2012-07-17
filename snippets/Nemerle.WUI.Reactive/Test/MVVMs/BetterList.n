@@ -32,6 +32,16 @@ namespace Test
       AllItems.RemoveAll(SelectedItems);
       SelectedItems = VMArray.Empty; // Clear selection
     }
+    
+    public Sort() : void 
+    {
+        def a = "asdf";
+        def b = a + " 111";
+        foreach(c in b) {
+            js console.log(c);            
+        }        
+        js console.log(b);
+    }
   }
 
   public partial module Views
@@ -52,7 +62,7 @@ namespace Test
            
           <div>
               <button data-bind="click: RemoveSelected, enable: SelectedItems().length > 0">Remove</button>
-              <button data-bind="click: function() { AllItems.sort() }, enable: AllItems().length > 1">Sort</button>
+              <button data-bind="click: Sort, enable: AllItems().length > 1">Sort</button>
           </div>
         </div>
       #>

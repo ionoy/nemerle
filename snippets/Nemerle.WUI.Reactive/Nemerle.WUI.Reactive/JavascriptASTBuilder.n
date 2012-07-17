@@ -1,0 +1,103 @@
+﻿using Nemerle;
+using Nemerle.Collections;
+using Nemerle.Text;
+using Nemerle.Utility;
+using Nemerle.Compiler;
+using Nemerle.Compiler.Typedtree;
+using Nemerle.Compiler.Parsetree;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Nemerle.WUI.Reactive
+{
+  public module JavascriptASTBuilder
+  {
+      public Build(expr : TExpr, debug : bool = false) : JavascriptAST
+      {          
+        when(debug) 
+            assert2(false);
+               
+        match(expr) {
+            | Array(args, dims)                 => JavascriptAST.Empty()
+            | ArrayIndexer                      => JavascriptAST.Empty()
+            | Assign                            => JavascriptAST.Empty()
+            | Base                              => JavascriptAST.Empty()
+            | Block                             => JavascriptAST.Empty()
+            | Cache                             => JavascriptAST.Empty()
+            | CacheRef                          => JavascriptAST.Empty()
+            | Call(func, parms, istail)         => JavascriptAST.Call(Build(func), parms.Map(p => Build(p.expr)), istail)
+            | ClosureFieldOf                    => JavascriptAST.Empty()
+            | ClosureObjectOf                   => JavascriptAST.Empty()
+            | ConstantObjectRef                 => JavascriptAST.Empty()
+            | CtorOf                            => JavascriptAST.Empty()
+            | DebugInfo                         => JavascriptAST.Empty()
+            | Def                               => JavascriptAST.Empty()
+            | DefaultValue                      => JavascriptAST.Empty()
+            | DefFunctionsIn                    => JavascriptAST.Empty()
+            | DefValIn                          => JavascriptAST.Empty()
+            | Delayed                           => JavascriptAST.Empty()
+            | Error                             => JavascriptAST.Empty()
+            | EventMember                       => JavascriptAST.Empty()
+            | FieldMember                       => JavascriptAST.Empty()
+            | FieldOf                           => JavascriptAST.Empty()
+            | Goto                              => JavascriptAST.Empty()
+            | HasType                           => JavascriptAST.Empty()
+            | If(cond, then, els, _, _)         => JavascriptAST.If(Build(cond), Build(then), Build(els))
+            | ImplicitValueTypeCtor             => JavascriptAST.Empty()
+            | Label(id, body)                   => Build(body)
+            | Literal(val)                      => 
+                match(val) {
+                | Void          => JavascriptAST.Literal(JavascriptLiteral.Undefined())
+                | Null          => JavascriptAST.Literal(JavascriptLiteral.Null())
+                | String (val)  => JavascriptAST.Literal(JavascriptLiteral.String(val))
+                | Float (val)   => JavascriptAST.Literal(JavascriptLiteral.Number(Convert.ToDecimal(val)))
+                | Double (val)  => JavascriptAST.Literal(JavascriptLiteral.Number(Convert.ToDecimal(val)))
+                | Decimal (val) => JavascriptAST.Literal(JavascriptLiteral.Number(val))
+                | Char (val)    => JavascriptAST.Literal(JavascriptLiteral.String(val.ToString()))
+                | Bool (val)    => JavascriptAST.Literal(JavascriptLiteral.Bool(val))
+                | Integer (val, isneg, _) => JavascriptAST.Literal(JavascriptLiteral.Number((val :> long) * (if(isneg) -1 else 1)))
+                | Enum => 
+                    Message.Error("Enums not supported currently");
+                    JavascriptAST.Empty();
+                }
+            | LocalFunRef                       => JavascriptAST.Empty()
+            | LocalRef                          => JavascriptAST.Empty()
+            | MacroEnvelope(expanded = ex)      => Build(ex)
+            | Match                             => JavascriptAST.Empty()
+            | MethodAddress                     => JavascriptAST.Empty()
+            | MethodOf                          => JavascriptAST.Empty()
+            | MethodRef(obj, meth, _, _)        => JavascriptAST.MethodRef(Build(obj), meth.Name)
+            | MultipleAssign                    => JavascriptAST.Empty()
+            | OpCode(name)                      => JavascriptAST.OpCode(name)
+            | PropertyMember                    => JavascriptAST.Empty()
+            | SelfTailCall                      => JavascriptAST.Empty()
+            | Sequence(e1, e2)                  => JavascriptAST.Sequence([Build(e1), Build(e2)])
+            | StaticEventRef                    => JavascriptAST.Empty()
+            | StaticPropertyRef                 => JavascriptAST.Empty()
+            | StaticRef(from, mem, _)              => 
+                def type = from.tycon.SystemType;
+                match(mem.MemberKind) {
+                | Method => 
+                    match(mem.Name) {
+                    | "op_Inequality" => JavascriptAST.OpCode("!=")
+                    | _ => JavascriptAST.Empty($"/* unk mem.Name $(mem.Name) */")
+                    }
+                | Field when type == typeof(list[_].Nil) => JavascriptAST.Array([])
+                | _ => JavascriptAST.Empty($"/* unk mem.MemberKind $(mem.MemberKind) */")
+                }
+            | Switch                            => JavascriptAST.Empty()
+            | This                              => JavascriptAST.This()
+            | Throw                             => JavascriptAST.Empty()
+            | Try                               => JavascriptAST.Empty()
+            | TryFinally                        => JavascriptAST.Empty()
+            | Tuple                             => JavascriptAST.Empty()
+            | TupleIndexer                      => JavascriptAST.Empty()
+            | TypeConversion(e, targetType, kind, loc)  => Build(e)
+            | TypeOf                    => JavascriptAST.Empty()
+            | Use                       => JavascriptAST.Empty()
+        }
+      }
+  }
+}

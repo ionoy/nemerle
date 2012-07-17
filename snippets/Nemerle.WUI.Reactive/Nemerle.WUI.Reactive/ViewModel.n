@@ -8,6 +8,7 @@ using Nemerle.Utility;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using BF = System.Reflection.BindingFlags;
 using TExpr = Nemerle.Compiler.Typedtree.TExpr;
 
@@ -43,13 +44,15 @@ namespace Nemerle.WUI.Reactive
       def superTypes = tb.GetDirectSuperTypes();
       
       unless (superTypes != null && superTypes.Exists(t => t.Equals(vmInterface)))
-        tb.AddImplementedInterface(<[ Nemerle.WUI.Reactive.IViewModel ]>)
+        tb.AddImplementedInterface(<[ Nemerle.WUI.Reactive.IViewModel ]>);
+                
+      
     }
     
     public DoTransformBeforeTypedMembers(tb : TypeBuilder, typer : Typer) : void
     {
       //assert2(false);
-      
+            
       def processMember(member : ClassMember) : void
       {
         | Field(ty=ty) as field =>
@@ -76,6 +79,54 @@ namespace Nemerle.WUI.Reactive
     {
       Macros.DefineCTX(typer);
       
+      def serverClass = tb.DeclaredNestedTypes.FirstOrDefault(t => t.Name == "Server");
+      def serverMethods = Dictionary();
+      when(serverClass != null)
+      {          
+          def env = typer.Manager.CoreEnv;
+          def env = env.EnterIntoNamespace(tb.NamespaceNode);
+          def controllerName = tb.Name + "Controller";
+          def field = <[ decl: _server : $(serverClass.Name : usesite) = $(serverClass.Name : usesite)() ]>;          
+          def ctb = env.Define(<[ decl: 
+            public class $(controllerName : usesite) : System.Web.Mvc.Controller
+            {}
+          ]>);
+          ctb.Define(field);
+                 
+          def ptb = tb.DefineNestedType(<[ decl:
+              class ServerProxy
+              {}
+          ]>);          
+          tb.Define(<[ decl: server : ServerProxy = ServerProxy() ]>);
+          
+          foreach(member in serverClass.GetMembers()) {
+              | method is IMethod when !method.IsConstructor && method.DeclaringType.FullName == serverClass.FullName => 
+                  def parameters = method.GetParameters().Map(p => <[ $(p.Name : usesite) : $(p.ty : typed) ]>);              
+                  def fparms = parameters.Map(PParameter);
+                  def methodName = ctb.ParsedName.NewName(method.Name);
+                            
+                  ctb.Define(<[ decl: 
+                    public $(methodName : name) (..$fparms) : System.Web.Mvc.JsonResult 
+                    {
+                        def result = _server.$(method.Name : dyn)(..$parameters);
+                        Json(result, System.Web.Mvc.JsonRequestBehavior.AllowGet);
+                    }
+                  ]>);
+                  
+                  serverMethods.Add(method.Name, fparms);
+                  def fparms = fparms.Append([<[ parameter: callback : int -> void ]>]);
+                  
+                  ptb.Define(<[ decl:                   
+                    public $(methodName : name) (..$(fparms)) : void
+                    {}
+                  ]>);
+              | _ => ()              
+          }
+          
+          ptb.Compile();
+          ctb.Compile();
+      }
+        
       def convertMethod(name : string, meth : MethodBuilder, isDependent = true) : PExpr
       {
         #region Type method body
@@ -87,6 +138,7 @@ namespace Nemerle.WUI.Reactive
         methodTyper.RunFullTyping();
         typer.Manager.Options.EmitDebug = oldEmitDebug;
         #endregion
+        
         //assert2(false);
         def exprs = 
           match (body)
@@ -94,7 +146,7 @@ namespace Nemerle.WUI.Reactive
             | PExpr.Sequence(body2) => body2
             | _                     => [body]
           };
-        def scriptExprs = exprs.Map(e => DoTransformExpr(tb, typer, Ident, e));
+        def scriptExprs = exprs.Map(e => DoTransformExpr(tb, typer, Ident, e, serverMethods));
         
         def scriptBody =
         if (isDependent)
@@ -105,9 +157,22 @@ namespace Nemerle.WUI.Reactive
             }
         else
           $<#$Ident..$(scriptExprs; $";\n$Ident")#>;
-        
+
+        match(meth.Header.Body) { 
+          | FunBody.Typed(typedBody) =>  
+            def jsAst = JavascriptASTBuilder.Build(typedBody, true);
+            def optimizedAst = JavascriptASTOptimizer.Optimize(jsAst);
+            def js = JavascriptASTWriter.Write(optimizedAst);
+            
+            match(jsAst, js)
+            {
+                _ => ()
+            }
+          | _ => Message.Error("Couldn't type body");
+        }
+      
         meth.Body = body;
-        
+                
         def code = 
           if (isDependent)
           $<#
@@ -175,12 +240,17 @@ viewModel.$name =
           "!!! Not implemented yet !!!"
         }
         ]>);
+        
+      _ = tb.DefineWithSource(<[ decl:
+          protected js(function : string) : string
+          {""}
+        ]>);
     }
     
-    public DoTransformExpr(tb : TypeBuilder, typer : Typer, ident : string, expr : PExpr) : string
+    public DoTransformExpr(tb : TypeBuilder, typer : Typer, ident : string, expr : PExpr, serverMethods : Dictionary[string, list[PParameter]]) : string
     {
       Macros.DefineCTX(typer);
-      def doExpr : PExpr -> string = DoTransformExpr(tb, typer, ident, _);
+      def doExpr : PExpr -> string = DoTransformExpr(tb, typer, ident, _, serverMethods);
       def manager = typer.Manager;
       def convertTi = manager.LookupTypeInfo("System.Convert", 0);
       def isToStr(m : object) : bool
@@ -204,15 +274,54 @@ viewModel.$name =
           | _ => false
         }
       }
-      match (expr)
+      def convertProperty(obj, prop) : string
       {
+          def knownProps = [("System.String", "Length", "length"), 
+          ];
+          
+          match(knownProps.FirstOrDefault(p => p[0] == obj.Type.TypeInfo.FullName && p[1] == prop.Name)) {
+              | t => $"$(obj.ToString()).$(t[2])"
+              | _ => $"/* Unknown property $(obj.Type.TypeInfo.FullName).$(prop.Name) */"
+          }
+      }
+      
+      Message.Warning(expr.ToString());
+      
+      match (expr)
+      {        
         | PExpr.Literal => expr.ToString()
-        | PExpr.Sequence([e]) => DoTransformExpr(tb, typer, ident, e)
+        | PExpr.TypeConversion as te => doExpr(te.expr)
+        | PExpr.TypeEnforcement as te => doExpr(te.expr)
+        | PExpr.Ref as r => r.name.Id
+        | PExpr.MacroCall(Name(Id = "js"), _, parms) => {
+            def xs = parms.Map(s => 
+                  match(s) {
+                    | SyntaxElement.Expression(PExpr.Call(func, parms)) => $<# $func(..$(parms; ","; doExpr)) #> 
+                    | _ => "";
+                  }
+                );
+            $" ..$xs ";
+        }
+        | PExpr.Sequence([e]) => DoTransformExpr(tb, typer, ident, e, serverMethods)
         | PExpr.Sequence(exprs) => 
           def ident2 = ident + Ident;
-          def exors2 = exprs.Map(e => DoTransformExpr(tb, typer, ident2, e));
+          def exors2 = exprs.Map(e => DoTransformExpr(tb, typer, ident2, e, serverMethods));
           $<#{..$(exors2; ""; x => $"$ident2$x;")#> + $"$ident}\n"
-          
+        | <[ this.server.$method(..$parms) ]> =>
+            def callback = parms.Last();
+            def parmValues = parms.Take(parms.Length - 1);
+            def parameters = if(serverMethods.ContainsKey(method.ToString())) serverMethods[method.ToString()] else [];
+            def parameters = parameters.Zip(parmValues, (f, s) => $"$(f.Name) : $(s.ToString())");
+            
+            match(callback) {
+                | <[ $result => $body ]>=> {
+                    /*..$(parameters; ':'; p => p. )*/
+                    $" jQuery.get('/$(tb.Name)/$method', { ..$parameters }, function($result) { " +
+                    $"  $(doExpr(body))  " +
+                     "  })";
+                }
+                | _ => ""    
+        }
         | <[ this.$(name : name) ]> when isThisAccess(expr.TypedObject)
         | <[ $(name : name) ]> when isThisAccess(expr.TypedObject) => 
           def arrayType = <[ ttype: Nemerle.WUI.Reactive.VMArray[_] ]>;
@@ -247,22 +356,33 @@ viewModel.$name =
                 $"$(doExpr(e1)).$name2"
                 
               | TExpr.StaticRef => "[]"
-              | TExpr.PropertyMember(_obj, _prop) => "!!!жопа!!!"
-              | _ => ""
+              | TExpr.PropertyMember(obj, prop) => convertProperty(obj, prop);              
+              | _ => 
+              assert2(false);
+              ""
             };
             
           result
           
         | <[ $e1 = $e2 ]> when isThisAccess(e1.TypedObject) => $"this.$e1($(doExpr(e2)))"
+        | <[ $e1 = $e2 ]> => $"$e1 = $(doExpr(e2))";
         | <[ when ($cond) $e ]> =>
           def e2 = 
             match (e)
             {
-              | PExpr.Sequence => ident + DoTransformExpr(tb, typer, ident, e)
-              | _              => ident + Ident + DoTransformExpr(tb, typer, ident + Ident, e)
+              | PExpr.Sequence => ident + DoTransformExpr(tb, typer, ident, e, serverMethods)
+              | _              => ident + Ident + DoTransformExpr(tb, typer, ident + Ident, e, serverMethods)
             };
           $"$(ident)if ($(doExpr(cond)))\n$e2"
-          
+        | <[ if($cond) $ifbody else $elsebody ]> => 
+            //assert2(false);
+            def cond2 = doExpr(cond);
+            def ifbody2 = doExpr(ifbody);
+            def elsebody2 = doExpr(elsebody);
+            $"if$cond2 \n" +
+            $"    $ifbody2; \n" +
+             "else \n" +
+            $"    $elsebody2"
         | <[ string.Concat(..$args) ]> =>
           //assert2(false);
           def removeToString(e : PExpr) : PExpr
@@ -281,9 +401,19 @@ viewModel.$name =
         | <[ $e -- ]> when isThisAccess(e.TypedObject) => $"this.$e(this.$e() - 1)"
         | <[ $_($_) ]> when expr.TypedObject is TExpr.MacroEnvelope =>
           def m = expr.TypedObject :> TExpr.MacroEnvelope;
-          DoTransformExpr(tb, typer, ident, m.expandedPExpr)
+          DoTransformExpr(tb, typer, ident, m.expandedPExpr, serverMethods)
           
-        | <[ $func(..$exprs) ]> => $<#$(doExpr(func))(..$(exprs; ", "; doExpr))#>
+| <[ $func(..$exprs) ]> => 
+  match(func, exprs) {
+    | (<[ Nemerle.IO.sprint ]>, PExpr.Literal(Literal.String(_)) as lit :: []) =>
+        def strExpr = StringTemplate.Helper.SprintImpl(lit, true, e => e, tb.GlobalEnv);                    
+        $"$(doExpr(strExpr))"
+    | (<[ Convert.ToString ]>, p :: []) => doExpr(p)
+    | _ => $<#$(doExpr(func))(..$(exprs; ", "; doExpr))#>
+  }
+        | <[ def $e1 = $e2 ]>
+        | <[ mutable $e1 = $e2 ]> => $"var $e1 = $(doExpr(e2))"
+        | <[ foreach($el in $coll) $body ]> => $"for(var $el in $coll) { var $el = $coll[$el]; $(doExpr(body)) }";
         | null => ""
         | _ =>
           //assert2(false);
@@ -324,5 +454,10 @@ viewModel.$name =
       }
       finally { typer.Manager.MacroColors.PopColor(); }
     }
+  }
+  
+  variant JsAST
+  {
+      
   }
 }

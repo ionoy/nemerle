@@ -1,0 +1,35 @@
+﻿using Nemerle;
+using Nemerle.Collections;
+using Nemerle.Text;
+using Nemerle.Utility;
+using Nemerle.Compiler;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Nemerle.WUI.Reactive
+{
+  public variant JavascriptLiteral : System.IEquatable[JavascriptLiteral]
+  {
+    | Undefined
+    | Null
+    | Number { val : decimal; }
+    | String { val : string; }
+    | Bool { val : bool; }
+    
+    [OverrideObjectEquals]
+    public Equals (lit : JavascriptLiteral) : bool
+      implements System.IEquatable[JavascriptLiteral].Equals
+    {
+      match ((this, lit)) {
+        | (Undefined, Undefined)
+        | (Null, Null) => true
+        | (String (x1), String (x2)) => x1 == x2
+        | (Bool (x1), Bool (x2)) => x1 == x2
+        | (Number (val), Number (val')) => val == val'
+        | _ => false
+      }
+    }
+  }
+}

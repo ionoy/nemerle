@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace Nemerle.WUI.Reactive
 {
-  class JsNameAttribute : Attribute
+  public class JsNameAttribute : Attribute
   {
     public this(name : string)
     {

@@ -59,8 +59,30 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>$(Nemerle)\Nemerle.Compiler.dll</HintPath>
     </Reference>
+    <Reference Include="Nemerle.Macros">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>$(Nemerle)\Nemerle.Macros.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="JavascriptAST.n">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="JavascriptASTBuilder.n">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="JavascriptASTOptimizer.n">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="JavascriptASTWriter.n">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="JavascriptLiteral.n">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Js.n">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.n" />
     <Compile Include="TransformView.n">
       <SubType>Code</SubType>

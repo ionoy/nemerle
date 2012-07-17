@@ -1,0 +1,65 @@
+﻿using Nemerle;
+using Nemerle.Collections;
+using Nemerle.Text;
+using Nemerle.Utility;
+using Nemerle.Compiler;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Nemerle.WUI.Reactive
+{
+  public module JavascriptASTWriter
+  {
+    public Write(ast : JavascriptAST) : string
+    {
+    | Sequence(items)                              => $<#..$(items; ";" + Environment.NewLine; Write);#>      
+    | If(cond, then, els)                          => 
+$<# 
+if($(Write(cond))) { 
+$(Write(then))
+} else {
+$(Write(els))
+}#>
+    | JustIf(cond, then)                           =>
+$<# 
+if($(Write(cond))) { 
+$(Write(then))
+}#>
+    | Ternary(cond, then, els)                     => $"($(Write(cond)) ? $(Write(then)) : $(Write(els)))"
+    | Call(OpCode as op, e1 :: e2 :: [], _)        => $"$(Write(e1)) $(Write(op)) $(Write(e2))"
+    | Call(op, parms, _)                           => $<#$(Write(op))(..$(parms; ","; Write))#>
+    | Literal(Undefined)                           => <#"undefined"#>
+    | Literal(Null)                                => "null"
+    | Literal(Number(val))                         => $"$val"
+    | Literal(String(val))                         => $<#"$val"#>
+    | Literal(Bool(val))                           => $"$val"
+    | Array(values)                                => $<#[..$(values; ","; Write)]#>
+    | OpCode(name)                                 => 
+        match (name)
+        {
+        | "==.ref" | "=="   => "==="
+        | "!=.ref" | "!="   => "!=="
+        | "<.s"    | "<.f"
+        | "<.u"             => "<"
+        | ">.s"    | ">.f"
+        | ">.u"             => ">"
+        | "<=.s"   | "<=.f"
+        | "<=.u"            => "<="
+        | ">=.s"   | ">=.f" 
+        | ">=.u"            => ">="
+        | "bool.!"          => "!="
+        | _ => Message.Error ("invalid opcode '" + name + "' in If pattern"); "";
+        }
+    | Object(fields)                              => 
+        def fieldToObjectField((name, ast)) {
+            $"$name : $(Write(ast))"
+        }
+        $<#{ ..$(fields; ", "; fieldToObjectField) }#>
+    | MethodRef(obj, meth)                        => $"$(Write(obj)).$meth"
+    | This                                        => "this"
+    | _                                           => "/* unknown */"
+    }
+  }
+}
