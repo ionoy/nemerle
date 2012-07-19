@@ -19,7 +19,7 @@ namespace Nemerle.WUI.Reactive
           | Field       => ConvertField(typeName, member)
           | Property    => ConvertProperty(typeName, member)
           | _ => 
-            Message.Error($"MemberKind $(member.MemberKind) not supported");
+            Message.Warning($"MemberKind $(member.MemberKind) not supported");
             None()              
           }
       }

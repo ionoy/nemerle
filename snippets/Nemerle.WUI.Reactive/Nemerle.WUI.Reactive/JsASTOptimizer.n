@@ -41,24 +41,27 @@ namespace Nemerle.WUI.Reactive
     
     public LabelsToSwitch(ast : JsAST) : JsAST 
     {
-        JsAST.Recurse(ast, a : JsAST => 
+        def r = JsAST.Recurse(ast, a : JsAST => 
         match(a) {
         | Label as l => ConvertLabelToSwitch(l)
         | _ => a
-        });
-                /*def ast = JsAST.Recurse(ast, a : JsAST => 
+        });        
+        r
+    }    
+    
+    ConvertLabelToSwitch(ast : JsAST.Label) : JsAST
+    {        
+        def currentLabel = $"__current$(ast.Id)";
+        def currentLabelDef = JsAST.DefValue(currentLabel, JsAST.Literal(JsLiteral.Integer(ast.Id)));
+        
+        def ast = JsAST.Recurse(ast, a : JsAST => 
         match(a) {
         | Goto(labelId) => JsAST.Seq([JsAST.Assign(JsAST.LocalRef(currentLabel), JsAST.Literal(JsLiteral.Integer(labelId))),
                                       JsAST.Break()])
         | _ => a
-        });     */   
-    }
-    
-    ConvertLabelToSwitch(ast : JsAST.Label) : JsAST
-    {        
-        def currentLabel = $"__current$ast.Id";
-        def currentLabelDef = JsAST.DefValue(currentLabel, JsAST.Literal(JsLiteral.Integer(ast.Id)));
-        def cases = IterateAST(ast).OfType.[JsAST.Label]().NToList();
+        });
+        
+        def cases = IterateAST(ast).OfType.[JsAST.Label]().Map(l => JsAST.SwitchCase(l.Id, l.Body));
         def switch = JsAST.Switch(JsAST.LocalRef(currentLabel), cases);
         def while_ = JsAST.While(JsAST.Literal(JsLiteral.Bool(true)), switch);
         JsAST.Seq([currentLabelDef, while_]);

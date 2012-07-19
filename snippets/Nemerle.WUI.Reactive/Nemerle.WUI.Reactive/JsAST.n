@@ -32,7 +32,8 @@ namespace Nemerle.WUI.Reactive
         | OpCode         { Name : string; }
         | Object         { Fields : list[(string * JsAST)] }
         | Seq            { Items : list[JsAST] }
-        | Switch         { Expr : JsAST; Cases : list[JsAST.Label] }
+        | Switch         { Expr : JsAST; Cases : list[JsAST.SwitchCase] }
+        | SwitchCase     { Id : int; Body : JsAST }
         | Ternary        { Cond : JsAST; Body : JsAST; ElseBody : JsAST }        
         | This
         | TryFinally     { Body : JsAST; Handler : JsAST }
@@ -40,7 +41,7 @@ namespace Nemerle.WUI.Reactive
         | UnaryOperator  { Op : string; Obj : JsAST }
         | Void
         | While          { Cond : JsAST; Body : JsAST }
-        | Code           { Code : string }
+        | Code           { code : string }
         | NotImpl { 
             Val : string;
             public this() {
@@ -70,7 +71,7 @@ namespace Nemerle.WUI.Reactive
             | MethodRef(obj, meth)      => JsAST.MethodRef(recurse(obj), meth)
             | OpCode                    => newAst        
             | Seq(items)                => JsAST.Seq(items.Map(recurse))
-            | Switch(expr, cases)       => JsAST.Switch(recurse(expr), cases.Map(recurse).Cast.[JsAST.Label]().NToList())
+            | Switch(expr, cases)       => JsAST.Switch(recurse(expr), cases.Map(recurse).Cast.[JsAST.SwitchCase]().NToList())
             | Ternary(cond, then, els)  => JsAST.Ternary(recurse(cond), recurse(then), recurse(els))
             | This                      => newAst
             | TryFinally(body, handler) => JsAST.TryFinally(recurse(body), recurse(handler))

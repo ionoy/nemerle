@@ -38,13 +38,7 @@ if($(Write(cond))) {
 $<#
 for(var $iter in $(Write(coll))) {
     $(Write(body))
-}#>
-    | Label(id, body)                              =>
-$<#
-    $id:
-    $(Write(body))
-    break;
-#>
+}#>    
     | Literal(Null)                                =>  "null"
     | Literal(Integer(val))                        => $"$val"
     | Literal(Float(val))                          => $"$val"
@@ -65,8 +59,14 @@ $<#
     | Switch(expr, cases)                          =>
 $<#
 switch($(Write(expr))) {
-    ..$(cases; "$(Environment.NewLine)")
+    ..$(cases; "\n"; Write)
 }
+#>
+    | SwitchCase(id, body)                              =>
+$<#
+    $id:
+    $(Write(body))
+    break;
 #>
     | This                                         => "this"    
     | TryFinally(body, handler)                    => 
