@@ -1,0 +1,58 @@
+﻿using Nemerle;
+using Nemerle.Collections;
+using Nemerle.Text;
+using Nemerle.Utility;
+using Nemerle.Compiler;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Nemerle.WUI.Reactive
+{  
+  module JsKnownMembers
+  {
+      public Convert(typeName : string, member : IMember) : option[JsAST]
+      {
+          match(member.MemberKind) {
+          | Method      => ConvertMethod(typeName, member)            
+          | Field       => ConvertField(typeName, member)
+          | Property    => ConvertProperty(typeName, member)
+          | _ => 
+            Message.Error($"MemberKind $(member.MemberKind) not supported");
+            None()              
+          }
+      }
+      
+      public ConvertMethod(typeName : string, member : IMember) : option[JsAST]
+      {
+        match(member.Name) {
+        | "op_Inequality" => Some(JsAST.OpCode("!="))
+        | "Concat" when typeName == typeof(string).FullName => Some(JsAST.MethodCorLib("string", "concat"))
+        | _ => 
+            Message.Warning($"member.Name $(member.Name) unsupported by type $(typeName)");
+            None();
+        }
+      }
+      
+      public ConvertField(typeName : string, member : IMember) : option[JsAST]
+      {
+        match(member.Name) {
+        | _ when typeName == typeof(list[_].Nil).FullName => Some(JsAST.Array([]))
+        | _ => 
+            Message.Warning($"member.Name $(member.Name) unsupported by type $typeName");
+            None();
+        }
+      }
+      
+      public ConvertProperty(typeName : string, member : IMember) : option[JsAST]
+      {
+        match(member.Name) {
+        | _ when typeName == typeof(list[_].Nil).FullName => Some(JsAST.Array([]))
+        | _ => 
+            Message.Warning($"member.Name $(member.Name) unsupported by type $typeName");
+            None();
+        }
+      }
+  }
+}

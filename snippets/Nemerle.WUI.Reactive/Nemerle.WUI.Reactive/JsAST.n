@@ -1,0 +1,45 @@
+﻿using Nemerle;
+using Nemerle.Collections;
+using Nemerle.Text;
+using Nemerle.Utility;
+using Nemerle.Compiler;
+using Nemerle.Compiler.Typedtree;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Nemerle.WUI.Reactive
+{
+    public variant JsAST
+    {
+        | Assign { Source : JsAST; Target : JsAST }
+        | Array { Values : list[JsAST] }
+        | BinaryOperator { Op : string; Left : JsAST; Right : JsAST }
+        | Call { Fun : JsAST; Parameters : list[JsAST]; }
+        | DefFunction { Obj : JsAST; Parameters : list[JsAST]; Body : JsAST }
+        | DefValue { Name : string; Val : JsAST }
+        | For { ItName : string; Collection : JsAST; Body : JsAST }
+        | If { Cond : JsAST; Body : JsAST; ElseBody : JsAST }
+        | JustIf { Cond : JsAST; Body : JsAST }        
+        | Literal { Value : JsLiteral }
+        | LocalRef { Name : string }        
+        | MethodRef { Obj : JsAST; Method : string }
+        | MethodCorLib { Obj : string; Method : string }
+        | OpCode { Name : string; }
+        | Object { Fields : list[(string * JsAST)] }
+        | Seq { Items : list[JsAST] }
+        | Ternary { Cond : JsAST; Body : JsAST; ElseBody : JsAST }        
+        | This
+        | TryFinally { Body : JsAST; Handler : JsAST }
+        | Undefined
+        | UnaryOperator { Op : string; Obj : JsAST }
+        | Void
+        | NotImpl { 
+            Val : string;
+            public this() {
+                Val = "";
+            }
+        }
+    }
+}

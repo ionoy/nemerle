@@ -29,11 +29,6 @@ namespace Nemerle.WUI.Reactive
       sb.ToString()
     }
     
-    public VMArrayToJson[T](values : VMArray[T]) : string
-    {
-      $<#[..$(values; ", "; ToJson)]#>
-    }
-
     public ToJson[T](value : T) : string
     {
       match (value)

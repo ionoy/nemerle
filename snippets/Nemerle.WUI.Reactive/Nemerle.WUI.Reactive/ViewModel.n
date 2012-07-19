@@ -57,11 +57,7 @@ namespace Nemerle.WUI.Reactive
       {
         | Field(ty=ty) as field =>
           match (ty)
-          {
-            | <[ VMArray[..$args] ]> when args.Length > 1 => 
-              //assert2(false);
-              field.ty = MakeNestedViewModel(tb, typer, field.Name, args);
-              
+          {            
             | _ => ()
           }
           
@@ -159,16 +155,17 @@ namespace Nemerle.WUI.Reactive
           $<#$Ident..$(scriptExprs; $";\n$Ident")#>;
 
         match(meth.Header.Body) { 
-          | FunBody.Typed(typedBody) =>  
-            def jsAst = JavascriptASTBuilder.Build(typedBody, true);
-            def optimizedAst = JavascriptASTOptimizer.Optimize(jsAst);
-            def js = JavascriptASTWriter.Write(optimizedAst);
+        | FunBody.Typed(typedBody) =>  
+            def jsAst = JsASTBuilder.Build(typedBody, true);
+            def optimizedAst = JsASTOptimizer.Optimize(jsAst);
+            def flattenSeqs = JsASTOptimizer.FlattenAndRemoveVoids(optimizedAst);
+            def js = JsASTWriter.Write(flattenSeqs); 
             
             match(jsAst, js)
             {
                 _ => ()
             }
-          | _ => Message.Error("Couldn't type body");
+        | _ => Message.Error("Couldn't type body");
         }
       
         meth.Body = body;
@@ -197,25 +194,13 @@ viewModel.$name =
         | meth is MethodBuilder when meth.IsConstructor => null
         | meth is MethodBuilder when meth.ReturnType is FixedType.Void =>
           convertMethod(meth.Name, meth, false)
-        
-        | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>
-          //assert2(false);
-          def arrayType = <[ ttype: Nemerle.WUI.Reactive.VMArray[_] ]>;
-          def isArray = prop.Getter.ReturnType.TryUnify(arrayType);
-          def ctor = if (isArray) "observableArray" else "observable";
-          def prefix = $<#viewModel.$(prop.Name) = ko.$ctor(#>;
-          <[ $(prefix : string) 
-            + Nemerle.WUI.Reactive.Utils.ToJson(this.$(prop.Ast.name))
-            + $(<#);#> : string) ]>
-          
         | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => 
           convertMethod(prop.Name, prop.GetGetter() :> MethodBuilder)
 
         | meth is MethodBuilder when meth.Header.ParametersDeclarations.Length == 0 =>
           convertMethod(meth.Name, meth)
           
-        | _ => Message.Error(member.Location, "Unsupported member"); null
-          
+        | _ =>  null          
       }
       
       def members = tb.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public);
@@ -323,42 +308,15 @@ viewModel.$name =
                 | _ => ""    
         }
         | <[ this.$(name : name) ]> when isThisAccess(expr.TypedObject)
-        | <[ $(name : name) ]> when isThisAccess(expr.TypedObject) => 
-          def arrayType = <[ ttype: Nemerle.WUI.Reactive.VMArray[_] ]>;
-          match (expr.TypedObject)
-          {
-            | TExpr.PropertyMember as prop when prop.Type.TryUnify(arrayType) => $"this.$name"
-            | _ => $"this.$name()"
-          }          
-            
         | <[ $e1.$(name : name) ]> => 
           //assert2(false);
           def result = 
             match (expr.TypedObject)
-            {
-              | TExpr.MethodRef(obj, meth, type_parms, notvirtual) => 
-                def name2 =
-                  if (meth.IsCustomAttributeDefined("Nemerle.WUI.Reactive.JsNameAttribute"))
-                  {
-                    //assert2(false);
-                    def ti = manager.LookupTypeInfo("Nemerle.WUI.Reactive.JsNameAttribute", 0);
-                    match (meth.GetModifiers().FindAttributeWithArgs(ti, typer.Env))
-                    {
-                      | Some((a, [<[ $(str : string) ]>])) => _ = a; str //[PExpr.Literal(Literal.String(str))]
-                      | _ => name.ToString()
-                    }
-                  }
-                  else
-                    name.ToString();
-                    
-                _ = obj; _ = type_parms; _ = notvirtual;
-                    
-                $"$(doExpr(e1)).$name2"
-                
+            {                
               | TExpr.StaticRef => "[]"
               | TExpr.PropertyMember(obj, prop) => convertProperty(obj, prop);              
               | _ => 
-              assert2(false);
+              //assert2(false);
               ""
             };
             
@@ -450,14 +408,9 @@ viewModel.$name =
           
         nested.Compile();
           
-        <[ Nemerle.WUI.Reactive.VMArray[$(tb.Ast.PName : name).$(name : dyn)] ]>
+        <[  ]>
       }
       finally { typer.Manager.MacroColors.PopColor(); }
     }
-  }
-  
-  variant JsAST
-  {
-      
   }
 }

@@ -145,9 +145,6 @@
     <Compile Include="MoveToDll\Utils.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="MoveToDll\VMArray.n">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="MVVM\BetterList.n">
       <SubType>Code</SubType>
     </Compile>

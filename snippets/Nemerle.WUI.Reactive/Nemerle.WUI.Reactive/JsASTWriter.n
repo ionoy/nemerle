@@ -1,0 +1,72 @@
+﻿using Nemerle;
+using Nemerle.Collections;
+using Nemerle.Text;
+using Nemerle.Utility;
+using Nemerle.Compiler;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Nemerle.WUI.Reactive
+{
+  public module JsASTWriter
+  {
+    public Write(ast : JsAST) : string
+    {
+    | Array(values)                                => $<#[..$(values; ","; Write)]#>    
+    | Assign(s, t)                                 => $"$(Write(s)) = $(Write(t))"    
+    | If(cond, then, els)                          => 
+$<# 
+if($(Write(cond))) { 
+    $(Write(then))
+} else {
+    $(Write(els))
+}#>
+    | JustIf(cond, then)                           =>
+$<# 
+if($(Write(cond))) { 
+    $(Write(then))
+}#>
+    | Ternary(cond, then, els)                     => $"($(Write(cond)) ? $(Write(then)) : $(Write(els)))"
+    | Call(OpCode as op, e1 :: e2 :: [])           => $"$(Write(e1)) $(Write(op)) $(Write(e2))"
+    | Call(op, parms)                              => $<#$(Write(op))(..$(parms; ","; Write))#>    
+    | DefValue(name, val)                          => $"var $name = $(Write(val))"
+    | For(iter, coll, body)                        => 
+$<#
+for(var $iter in $(Write(coll))) {
+    $(Write(body))
+}#>
+    | Literal(Null)                                =>  "null"
+    | Literal(Integer(val))                        => $"$val"
+    | Literal(Float(val))                          => $"$val"
+    | Literal(String(val))                         => $<#"$val"#>
+    | Literal(Bool(val))                           => $"$val"
+    | LocalRef(name)                               => $"$name"
+    | MethodRef(obj, meth)                         => $"$(Write(obj)).$meth"
+    | MethodCorLib(obj, meth)                      => $"$obj.$meth"
+    | OpCode(name)                                 => $"$name"        
+    | Object(fields)                               => 
+        def fieldToObjectField((name, ast)) {
+            $"$name : $(Write(ast))"
+        }
+        $<#{ ..$(fields; ", "; fieldToObjectField) }#>
+    | Seq(items)                              => 
+        def withoutVoids = items.Filter(i => !(i is JsAST.Void));
+        $<#..$(withoutVoids; ";" + Environment.NewLine; Write);#>               
+    | This                                        => "this"
+    | TryFinally(body, handler)                   => 
+$<#
+try {
+    $(Write(body))
+} finally {
+    $(Write(handler))
+}
+#>
+    | Undefined                                   => <#"undefined"#>    
+    | Void                                        => ""    
+    | NotImpl(val)                                => $"/* Not implemented: $val */"    
+    | _                                           => "/* unknown */"
+    }
+  }
+}

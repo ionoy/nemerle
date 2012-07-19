@@ -65,19 +65,22 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="JavascriptAST.n">
+    <Compile Include="JsAST.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="JavascriptASTBuilder.n">
+    <Compile Include="JsASTBuilder.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="JavascriptASTOptimizer.n">
+    <Compile Include="JsASTOptimizer.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="JavascriptASTWriter.n">
+    <Compile Include="JsASTWriter.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="JavascriptLiteral.n">
+    <Compile Include="JsKnownMembers.n">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="JsLiteral.n">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Js.n">

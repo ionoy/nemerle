@@ -10,24 +10,24 @@ using System.Linq;
 
 namespace Nemerle.WUI.Reactive
 {
-  public variant JavascriptLiteral : System.IEquatable[JavascriptLiteral]
+  public variant JsLiteral : System.IEquatable[JsLiteral]
   {
-    | Undefined
-    | Null
-    | Number { val : decimal; }
-    | String { val : string; }
+    | Integer { val : int }
+    | Float { val : double }
     | Bool { val : bool; }
+    | String { val : string; }
+    | Null
     
     [OverrideObjectEquals]
-    public Equals (lit : JavascriptLiteral) : bool
-      implements System.IEquatable[JavascriptLiteral].Equals
+    public Equals (lit : JsLiteral) : bool
+      implements System.IEquatable[JsLiteral].Equals
     {
       match ((this, lit)) {
-        | (Undefined, Undefined)
         | (Null, Null) => true
         | (String (x1), String (x2)) => x1 == x2
         | (Bool (x1), Bool (x2)) => x1 == x2
-        | (Number (val), Number (val')) => val == val'
+        | (Integer (val), Integer (val')) => val == val'
+        | (Float (val), Float (val')) => val == val'
         | _ => false
       }
     }
