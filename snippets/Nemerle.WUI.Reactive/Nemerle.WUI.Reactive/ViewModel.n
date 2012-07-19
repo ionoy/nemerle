@@ -155,8 +155,9 @@ namespace Nemerle.WUI.Reactive
           $<#$Ident..$(scriptExprs; $";\n$Ident")#>;
 
         match(meth.Header.Body) { 
-        | FunBody.Typed(typedBody) =>  
-            def jsAst = JsASTBuilder.Build(typedBody, true);
+        | FunBody.Typed(typedBody) =>         
+            def jsAst = JsASTBuilder.Build(typedBody, true);            
+            def jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
             def optimizedAst = JsASTOptimizer.Optimize(jsAst);
             def flattenSeqs = JsASTOptimizer.FlattenAndRemoveVoids(optimizedAst);
             def js = JsASTWriter.Write(flattenSeqs); 

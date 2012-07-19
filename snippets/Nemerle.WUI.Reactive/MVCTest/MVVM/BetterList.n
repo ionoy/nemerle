@@ -49,8 +49,18 @@ namespace MVCTest
     }*/
     
     public Sort() : void 
-    {
+    {        
         mutable a = "Hello world";
+        def t = Some(a);
+        
+        def m = match(a.Length) {
+        | 11 => $"$a is 11 characters long"
+        | _ => $"$a is not 11 characters long"
+        }
+        match(m) {
+        | _ => ()
+        }
+        
         
         foreach(c in a) {
             def t = c;
@@ -61,7 +71,6 @@ namespace MVCTest
             foreach(k in a)
                 def v = k;
         }
-              
         
         if(a.Length == 11)
             js console.log($"$a is 11 characters long");

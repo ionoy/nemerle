@@ -27,13 +27,13 @@ namespace Nemerle.WUI.Reactive
             | ArrayIndexer                      => JsAST.NotImpl()
             | Assign(s, t)                      => JsAST.Assign(Build(s), Build(t))
             | Base                              => JsAST.NotImpl()
-            | Block                             => JsAST.NotImpl()
+            | Block(body = body)                => Build(body)
             | Cache                             => JsAST.NotImpl()
             | CacheRef                          => JsAST.NotImpl()
             | Call(func, parms, istail)         => JsAST.Call(Build(func), parms.Map(p => Build(p.expr)))
             | ClosureFieldOf                    => JsAST.NotImpl()
             | ClosureObjectOf                   => JsAST.NotImpl()
-            | ConstantObjectRef                 => JsAST.NotImpl()
+            | ConstantObjectRef                 => JsAST.NotImpl() 
             | CtorOf                            => JsAST.NotImpl()
             | DebugInfo                         => JsAST.NotImpl()
             | Def                               => JsAST.NotImpl()
@@ -45,11 +45,11 @@ namespace Nemerle.WUI.Reactive
             | EventMember                       => JsAST.NotImpl()
             | FieldMember                       => JsAST.NotImpl()
             | FieldOf                           => JsAST.NotImpl()
-            | Goto                              => JsAST.NotImpl()
+            | Goto(target, _)                   => JsAST.Goto(target)
             | HasType                           => JsAST.NotImpl()
             | If(cond, then, els, _, _)         => JsAST.If(Build(cond), Build(then), Build(els))
             | ImplicitValueTypeCtor             => JsAST.NotImpl()
-            | Label(id, body)                   => Build(body)
+            | Label(id, body)                   => JsAST.Label(id, Build(body))
             | Literal(val)                      => 
                 match(val) {                
                 | Null          => JsAST.Literal(JsLiteral.Null())
@@ -68,8 +68,20 @@ namespace Nemerle.WUI.Reactive
                 }
             | LocalFunRef                       => JsAST.NotImpl()
             | LocalRef(decl)                    => JsAST.LocalRef(decl.Name)
-            | MacroEnvelope(expanded = ex)      => Build(ex)  
-            | Match                             => JsAST.NotImpl()
+            | MacroEnvelope(expanded = ex, original = org) => 
+                match(org) { 
+                | <[ foreach($it in $coll) $body  ]> => 
+                    def it = it.ToString();
+                    def coll = if(coll.TypedObject is TExpr) Build(coll.TypedObject :> TExpr) else JsAST.LocalRef(coll.ToString());
+                    def body = match(body) {
+                    | Sequence(h :: t) => if(h.TypedObject is TExpr) Build(h.TypedObject :> TExpr) else JsAST.Code(h.ToString());
+                    | pexpr => if(pexpr.TypedObject is TExpr) Build(pexpr.TypedObject :> TExpr) else JsAST.Code(pexpr.ToString());
+                    }
+                    
+                    JsAST.For(it, coll, body);                    
+                | _ => Build(ex)
+                }                
+            | Match(expr, cases)                => JsAST.NotImpl()   //This shouldn't be in TExpr after optimization
             | MethodAddress                     => JsAST.NotImpl()
             | MethodOf                          => JsAST.NotImpl()
             | MethodRef(obj, meth, _, _)        => JsAST.MethodRef(Build(obj), meth.Name)
@@ -189,6 +201,19 @@ namespace Nemerle.WUI.Reactive
         | _ => None() 
         }
       | _ => None()
+      }
+      
+      ConvertPattern(p : Pattern) : JsAST
+      {   
+        | Wildcard    => JsAST.Literal(JsLiteral.Bool(true))
+        | As          //{ pat : Pattern; decl : LocalValue; }
+        | HasType     //{ typ : FixedType; }
+        | Tuple       //{ args : list [Pattern]; }
+        | Record      //{ args : list [IMember * Pattern]; }
+        | Application //{ name : TypeInfo; arg : Pattern; }
+        | Enum        //{ fld : IField; val : Nemerle.Compiler.Literal; }
+        | Literal     //{ lit : Nemerle.Compiler.Literal; }
+        | Error       => JsAST.NotImpl()
       }
   }
 }

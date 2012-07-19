@@ -10,44 +10,68 @@ using System.Linq;
 namespace Nemerle.WUI.Reactive
 {
   public module JsASTOptimizer
-  {
+  { 
     public Optimize(ast : JsAST) : JsAST
-    {   
-    //Foreach
-    
-    //Structural
-    | Call(OpCode("==="), something :: Literal(Bool(true)) :: []) 
-    | Call(OpCode("==="), Literal(Bool(true)) :: something :: [])        => Optimize(something)
-    | If(Call(func, something :: If(c, t, e) :: []), then, els)
-    | If(Call(func, If(c, t, e) :: something :: []), then, els)         => Optimize(JsAST.If(JsAST.Call(func, JsAST.Ternary(c, t , e) :: [something]), then, els))
-    | If(cond, then, Undefined)                                         => JsAST.JustIf(Optimize(cond), Optimize(then))
-    
-    //Optimize parts
-    | Seq(items)                                                        => JsAST.Seq(items.Map(Optimize))      
-    | If(cond, then, els)                                               => JsAST.If(Optimize(cond), Optimize(then), Optimize(els))
-    | Ternary(cond, then, els)                                          => JsAST.Ternary(Optimize(cond), Optimize(then), Optimize(els))
-    | For(it, coll, body)                                               => JsAST.For(it, coll, Optimize(body))
-    | Call(func, parms)                                                 => JsAST.Call(Optimize(func), parms.Map(p => Optimize(p)))      
-    | MethodRef(obj, meth)                                              => JsAST.MethodRef(Optimize(obj), meth)
-    | _ => ast
+    {  
+        JsAST.Recurse(ast, a : JsAST => 
+        match(a) { 
+        | Call(OpCode("==="), something :: Literal(Bool(true)) :: []) 
+        | Call(OpCode("==="), Literal(Bool(true)) :: something :: [])       => something
+        | If(Call(func, something :: If(c, t, e) :: []), then, els)
+        | If(Call(func, If(c, t, e) :: something :: []), then, els)         => JsAST.If(JsAST.Call(func, JsAST.Ternary(c, t, e) :: [something]), then, els)
+        | If(cond, then, Undefined)                                         => JsAST.JustIf(cond, then)    
+        | _ => a
+        })
+    }
+        
+    public FlattenAndRemoveVoids(ast : JsAST) : JsAST    
+    {
+        JsAST.Recurse(ast, a : JsAST => 
+        match(a) {
+        | Seq(s0) when s0.Any(e => e is JsAST.Seq)                          => 
+            def r = s0.Flatten(e => 
+                match(e) {
+                | JsAST.Seq(xs) => xs
+                | x => [x]
+            });
+            JsAST.Seq(r.Filter(rr => !(rr is JsAST.Void)));
+        | _ => a
+        });
     }
     
-    public FlattenAndRemoveVoids(ast : JsAST) : JsAST
+    public LabelsToSwitch(ast : JsAST) : JsAST 
     {
-    | Seq(s0) when s0.Any(e => e is JsAST.Seq)                => 
-        def r = s0.Flatten(e => 
-            match(e) {
-            | JsAST.Seq(xs) => xs
-            | x => [x]
+        JsAST.Recurse(ast, a : JsAST => 
+        match(a) {
+        | Label as l => ConvertLabelToSwitch(l)
+        | _ => a
         });
-        FlattenAndRemoveVoids(JsAST.Seq(r.Filter(rr => !(rr is JsAST.Void))));
-    | Seq(items)                                                        => JsAST.Seq(items.Map(FlattenAndRemoveVoids))      
-    | If(cond, then, els)                                               => JsAST.If(FlattenAndRemoveVoids(cond), FlattenAndRemoveVoids(then), FlattenAndRemoveVoids(els))
-    | Ternary(cond, then, els)                                          => JsAST.Ternary(FlattenAndRemoveVoids(cond), FlattenAndRemoveVoids(then), FlattenAndRemoveVoids(els))
-    | For(it, coll, body)                                               => JsAST.For(it, coll, FlattenAndRemoveVoids(body))
-    | Call(func, parms)                                                 => JsAST.Call(FlattenAndRemoveVoids(func), parms.Map(p => FlattenAndRemoveVoids(p)))      
-    | MethodRef(obj, meth)                                              => JsAST.MethodRef(FlattenAndRemoveVoids(obj), meth)
-    | _ => ast
+                /*def ast = JsAST.Recurse(ast, a : JsAST => 
+        match(a) {
+        | Goto(labelId) => JsAST.Seq([JsAST.Assign(JsAST.LocalRef(currentLabel), JsAST.Literal(JsLiteral.Integer(labelId))),
+                                      JsAST.Break()])
+        | _ => a
+        });     */   
+    }
+    
+    ConvertLabelToSwitch(ast : JsAST.Label) : JsAST
+    {        
+        def currentLabel = $"__current$ast.Id";
+        def currentLabelDef = JsAST.DefValue(currentLabel, JsAST.Literal(JsLiteral.Integer(ast.Id)));
+        def cases = IterateAST(ast).OfType.[JsAST.Label]().NToList();
+        def switch = JsAST.Switch(JsAST.LocalRef(currentLabel), cases);
+        def while_ = JsAST.While(JsAST.Literal(JsLiteral.Bool(true)), switch);
+        JsAST.Seq([currentLabelDef, while_]);
+    }
+    
+    IterateAST(ast : JsAST) : IEnumerable[JsAST] 
+    {
+        def lst = List();
+        JsAST.Recurse(ast, a => {
+            lst.Add(a);
+            a
+        });
+        lst
     }
   }
 }

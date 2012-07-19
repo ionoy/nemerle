@@ -14,8 +14,13 @@ namespace Nemerle.WUI.Reactive
   {
     public Write(ast : JsAST) : string
     {
-    | Array(values)                                => $<#[..$(values; ","; Write)]#>    
     | Assign(s, t)                                 => $"$(Write(s)) = $(Write(t))"    
+    | Array(values)                                => $<#[..$(values; ","; Write)]#>  
+    | BinaryOperator(op, l, r)                     => $"$(Write(l)) $op $(Write(r))"
+    | Break                                        =>  "break"
+    | Call(OpCode as op, e1 :: e2 :: [])           => $"$(Write(e1)) $(Write(op)) $(Write(e2))"
+    | Call(op, parms)                              => $<#$(Write(op))(..$(parms; ","; Write))#>    
+    | DefValue(name, val)                          => $"var $name = $(Write(val))"      
     | If(cond, then, els)                          => 
 $<# 
 if($(Write(cond))) { 
@@ -28,15 +33,18 @@ $<#
 if($(Write(cond))) { 
     $(Write(then))
 }#>
-    | Ternary(cond, then, els)                     => $"($(Write(cond)) ? $(Write(then)) : $(Write(els)))"
-    | Call(OpCode as op, e1 :: e2 :: [])           => $"$(Write(e1)) $(Write(op)) $(Write(e2))"
-    | Call(op, parms)                              => $<#$(Write(op))(..$(parms; ","; Write))#>    
-    | DefValue(name, val)                          => $"var $name = $(Write(val))"
+    | Ternary(cond, then, els)                     => $"($(Write(cond)) ? $(Write(then)) : $(Write(els)))"  
     | For(iter, coll, body)                        => 
 $<#
 for(var $iter in $(Write(coll))) {
     $(Write(body))
 }#>
+    | Label(id, body)                              =>
+$<#
+    $id:
+    $(Write(body))
+    break;
+#>
     | Literal(Null)                                =>  "null"
     | Literal(Integer(val))                        => $"$val"
     | Literal(Float(val))                          => $"$val"
@@ -51,11 +59,17 @@ for(var $iter in $(Write(coll))) {
             $"$name : $(Write(ast))"
         }
         $<#{ ..$(fields; ", "; fieldToObjectField) }#>
-    | Seq(items)                              => 
+    | Seq(items)                                   => 
         def withoutVoids = items.Filter(i => !(i is JsAST.Void));
         $<#..$(withoutVoids; ";" + Environment.NewLine; Write);#>               
-    | This                                        => "this"
-    | TryFinally(body, handler)                   => 
+    | Switch(expr, cases)                          =>
+$<#
+switch($(Write(expr))) {
+    ..$(cases; "$(Environment.NewLine)")
+}
+#>
+    | This                                         => "this"    
+    | TryFinally(body, handler)                    => 
 $<#
 try {
     $(Write(body))
@@ -63,10 +77,17 @@ try {
     $(Write(handler))
 }
 #>
-    | Undefined                                   => <#"undefined"#>    
-    | Void                                        => ""    
-    | NotImpl(val)                                => $"/* Not implemented: $val */"    
-    | _                                           => "/* unknown */"
+    | Undefined                                    => <#"undefined"#>    
+    | Void                                         => ""    
+    | While(cond, body)                            =>
+$<#
+while($(Write(cond))) {
+    $(Write(body))
+}
+#>
+    | Code(code)                                   => code
+    | NotImpl(val)                                 => $"/* Not implemented: $val */"    
+    | _                                            => $"/* unknown $ast */"
     }
   }
 }
