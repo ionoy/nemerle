@@ -156,14 +156,15 @@ namespace Nemerle.WUI.Reactive
 
         match(meth.Header.Body) { 
         | FunBody.Typed(typedBody) =>         
-            def jsAst = JsASTBuilder.Build(typedBody, true);            
-            def jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
-            def optimizedAst = JsASTOptimizer.Optimize(jsAst);
-            def flattenSeqs = JsASTOptimizer.FlattenAndRemoveVoids(optimizedAst);
-            def js = JsASTWriter.Write(flattenSeqs); 
+            mutable jsAst = JsASTBuilder.Build(typedBody, true);
+            jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
+            jsAst = JsASTOptimizer.Optimize(jsAst);            
+            jsAst = JsASTOptimizer.FlattenAndRemoveVoids(jsAst);
+            jsAst = JsASTOptimizer.RemoveEmptyBranches(jsAst);
             
-            match(jsAst, js)
-            {
+            def js = JsASTWriter.Write(jsAst); 
+            
+            match(jsAst, js) {
                 _ => ()
             }
         | _ => Message.Error("Couldn't type body");

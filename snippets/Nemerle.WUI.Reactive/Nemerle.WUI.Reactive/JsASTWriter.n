@@ -12,82 +12,99 @@ namespace Nemerle.WUI.Reactive
 {
   public module JsASTWriter
   {
-    public Write(ast : JsAST) : string
+    public Write(ast : JsAST, indent = 0 : int) : string
     {
-    | Assign(s, t)                                 => $"$(Write(s)) = $(Write(t))"    
-    | Array(values)                                => $<#[..$(values; ","; Write)]#>  
-    | BinaryOperator(op, l, r)                     => $"$(Write(l)) $op $(Write(r))"
-    | Break                                        =>  "break"
-    | Call(OpCode as op, e1 :: e2 :: [])           => $"$(Write(e1)) $(Write(op)) $(Write(e2))"
-    | Call(op, parms)                              => $<#$(Write(op))(..$(parms; ","; Write))#>    
-    | DefValue(name, val)                          => $"var $name = $(Write(val))"      
-    | If(cond, then, els)                          => 
+        def i(){
+            string.Join(string.Empty, Enumerable.Repeat("    ", indent));
+        }
+        match(ast) {
+        | Assign(s, t)                                 => i() + $"$(Write(s)) = $(Write(t))"    
+        | Array(values)                                => $<#[..$(values; ","; Write(_, 0))]#>  
+        | BinaryOperator(op, l, r)                     => $"$(Write(l)) $op $(Write(r))"
+        | Break                                        => i() + "break"
+        | Call(OpCode as op, e1 :: e2 :: [])           => $"$(Write(e1)) $(Write(op)) $(Write(e2))"
+        | Call(op, parms)                              => $<#$(Write(op))(..$(parms; ","; Write(_, indent)))#>    
+        | Continue(id)                                 => i() + $"continue $id"
+        | DefValue(name, Void)                         => i() + $"var $name"      
+        | DefValue(name, val)                          => i() + $"var $name = $(Write(val))"
+        | If(cond, then, els)                          => 
 $<# 
-if($(Write(cond))) { 
-    $(Write(then))
-} else {
-    $(Write(els))
-}#>
-    | JustIf(cond, then)                           =>
+$(i())if($(Write(cond))) { 
+$(i())$(Write(then, indent + 1))
+$(i())} else {
+$(i())$(Write(els, indent + 1))
+$(i())}#>
+        | JustIf(cond, then)                           =>
 $<# 
-if($(Write(cond))) { 
-    $(Write(then))
-}#>
-    | Ternary(cond, then, els)                     => $"($(Write(cond)) ? $(Write(then)) : $(Write(els)))"  
-    | For(iter, coll, body)                        => 
+$(i())if($(Write(cond))) { 
+$(i())$(Write(then, indent + 1))
+$(i())}#>
+        | Ternary(cond, then, els)                     => $"($(Write(cond)) ? $(Write(then)) : $(Write(els)))"  
+        | For(iter, coll, body)                        => 
 $<#
-for(var $iter in $(Write(coll))) {
-    $(Write(body))
-}#>    
-    | Literal(Null)                                =>  "null"
-    | Literal(Integer(val))                        => $"$val"
-    | Literal(Float(val))                          => $"$val"
-    | Literal(String(val))                         => $<#"$val"#>
-    | Literal(Bool(val))                           => $"$val"
-    | LocalRef(name)                               => $"$name"
-    | MethodRef(obj, meth)                         => $"$(Write(obj)).$meth"
-    | MethodCorLib(obj, meth)                      => $"$obj.$meth"
-    | OpCode(name)                                 => $"$name"        
-    | Object(fields)                               => 
-        def fieldToObjectField((name, ast)) {
+$(i())for(var $iter in $(Write(coll))) {
+$(i())$(Write(body, indent + 1))
+$(i())}#>    
+        | Label(id, body)                              =>
+$<#
+$(Write(body, indent + 1))
+#>
+        | Literal(Null)                                =>  "null"
+        | Literal(Integer(val))                        => $"$val"
+        | Literal(Float(val))                          => $"$val"
+        | Literal(String(val))                         => $<#"$val"#>
+        | Literal(Bool(val))                           => $"$val"
+        | LocalRef(name)                               => $"$name"
+        | MethodRef(obj, meth)                         => i() + $"$(Write(obj)).$meth"
+        | MethodCorLib(obj, meth)                      => i() + $"$obj.$meth"
+        | OpCode(name)                                 => $"$name"        
+        | Object(fields)                               => 
+                    def fieldToObjectField((name, ast)) {
             $"$name : $(Write(ast))"
         }
-        $<#{ ..$(fields; ", "; fieldToObjectField) }#>
-    | Seq(items)                                   => 
-        def withoutVoids = items.Filter(i => !(i is JsAST.Void));
-        $<#..$(withoutVoids; ";" + Environment.NewLine; Write);#>               
-    | Switch(expr, cases)                          =>
+            $<#{ ..$(fields; ", "; fieldToObjectField) }#>
+        | Seq(items)                                   => 
+            def withoutVoids = items.Filter(i => !(i is JsAST.Void));
+            $<#..$(withoutVoids; ";" + Environment.NewLine; Write(_, indent));#>               
+        | Switch(expr, cases)                          =>
 $<#
-switch($(Write(expr))) {
-    ..$(cases; "\n"; Write)
-}
+$(i())switch($(Write(expr))) {
+$(i())..$(cases; "\n"; Write(_, indent + 1))
+$(i())}
 #>
-    | SwitchCase(id, body)                              =>
+        | SwitchCase(id, body)                         =>
 $<#
-    $id:
-    $(Write(body))
-    break;
+$(i())$id:
+$(i())$(Write(body, indent + 1))
+$(i())   break;
 #>
-    | This                                         => "this"    
-    | TryFinally(body, handler)                    => 
+        | This                                         => "this"    
+        | TryFinally(body, handler)                    => 
 $<#
-try {
-    $(Write(body))
-} finally {
-    $(Write(handler))
-}
+$(i())try {
+$(i())$(Write(body, indent + 1))
+$(i())} finally {
+$(i())$(Write(handler, indent + 1))
+$(i())}
 #>
-    | Undefined                                    => <#"undefined"#>    
-    | Void                                         => ""    
-    | While(cond, body)                            =>
+        | Undefined                                    => <#"undefined"#>    
+        | Void                                         => ""    
+        | While(cond, body)                            =>
 $<#
-while($(Write(cond))) {
-    $(Write(body))
-}
+$(i())while($(Write(cond))) {
+$(i())$(Write(body, indent + 1))
+$(i())}
 #>
-    | Code(code)                                   => code
-    | NotImpl(val)                                 => $"/* Not implemented: $val */"    
-    | _                                            => $"/* unknown $ast */"
+        | WhileNamed(cond, body, name)                 =>
+$<#
+$(i())$name: while($(Write(cond))) {
+$(i())$(Write(body, indent + 1))
+$(i())}
+#>
+        | Code(code)                                   => code
+        | NotImpl(val)                                 => $"/* Not implemented: $val */"    
+        | _                                            => $"/* unknown $ast */"
+        }
     }
   }
 }

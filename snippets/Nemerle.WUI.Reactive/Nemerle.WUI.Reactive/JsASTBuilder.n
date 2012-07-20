@@ -37,7 +37,7 @@ namespace Nemerle.WUI.Reactive
             | CtorOf                            => JsAST.NotImpl()
             | DebugInfo                         => JsAST.NotImpl()
             | Def                               => JsAST.NotImpl()
-            | DefaultValue                      => JsAST.NotImpl()
+            | DefaultValue                      => JsAST.Void()
             | DefFunctionsIn                    => JsAST.NotImpl()
             | DefValIn(name, val, body)         => JsAST.Seq([JsAST.DefValue(name.Name, Build(val)), Build(body)])
             | Delayed                           => JsAST.NotImpl()
