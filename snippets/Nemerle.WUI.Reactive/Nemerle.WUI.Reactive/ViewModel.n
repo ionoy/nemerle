@@ -134,14 +134,7 @@ namespace Nemerle.WUI.Reactive
         #endregion
         
         //assert2(false);
-        def exprs = 
-          match (body)
-          {
-            | PExpr.Sequence(body2) => body2
-            | _                     => [body]
-          };
-        def scriptExprs = exprs.Map(e => DoTransformExpr(tb, typer, Ident, e, serverMethods));
-        
+                
         /*
         def scriptBody =
         if (isDependent)
