@@ -6,6 +6,7 @@ using Nemerle.Text;
 using Nemerle.Utility;
 
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -70,7 +71,7 @@ namespace Nemerle.WUI.Reactive
     }
     
     public DoTransform(tb : TypeBuilder, typer : Typer) : void
-    {
+    {            
       Macros.DefineCTX(typer);
       
       def serverClass = tb.DeclaredNestedTypes.FirstOrDefault(t => t.Name == "Server");
@@ -120,7 +121,7 @@ namespace Nemerle.WUI.Reactive
           ptb.Compile();
           ctb.Compile();
       }
-        
+      
       def convertMethod(name : string, meth : MethodBuilder, isDependent = true) : PExpr
       {
         #region Type method body
@@ -128,41 +129,26 @@ namespace Nemerle.WUI.Reactive
         def body = meth.Body;
         def oldEmitDebug = typer.Manager.Options.EmitDebug;
         typer.Manager.Options.EmitDebug = false;
-        def methodTyper = Typer(tb, null, meth, meth.Env);
+        def methodTyper = Typer(tb, null, meth, meth.Env);        
         methodTyper.RunFullTyping();
         typer.Manager.Options.EmitDebug = oldEmitDebug;
         #endregion
         
-        //assert2(false);
-                
-        /*
-        def scriptBody =
-        if (isDependent)
-            match (scriptExprs.DivideLast())
-            {
-              | ([], last)     => Ident + "return " + last.Trim()
-              | (exprs2, last) => $<#..$(exprs2; ";\n");\n$Ident#> + "return " + last.Trim()
-            }
-        else
-          $<#$Ident..$(scriptExprs; $";\n$Ident")#>;
-        */
         def scriptBody = match(meth.Header.Body) { 
         | FunBody.Typed(typedBody) =>         
             mutable jsAst = JsASTBuilder.Build(typedBody, false);
             jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
             jsAst = JsASTOptimizer.Optimize(jsAst);            
             jsAst = JsASTOptimizer.FlattenAndRemoveVoids(jsAst);
-            jsAst = JsASTOptimizer.RemoveEmptyBranches(jsAst);
-            
+            jsAst = JsASTOptimizer.RemoveEmptyBranches(jsAst);            
             JsASTWriter.Write(jsAst); 
-        | _ => Message.Error("Couldn't type body"); "/* Error generating javascript, method body wasn't typed correctly */";
+        | _ => Message.Error("Couldn't type body"); "// Error generating javascript, method body wasn't typed correctly";
         }
       
         meth.Body = body;
                 
-        def code = 
-          if (isDependent)
-          $<#
+        def code = if (isDependent)
+$<#
 this.$name = ko.computed(function() {
     return $scriptBody;
 }, this);#>
@@ -173,27 +159,60 @@ this.$name = function() {
 };#>;
         <[ $(code : string) ]>
       }
-      
-      assert2(false);
-      
+            
       def convertMember(member : IMember) : PExpr
       {
         | meth is MethodBuilder when meth.Name.StartsWith("get_") || meth.Name.StartsWith("set_") => null //TODO: Add property IMethod.IsAccessor
         | meth is MethodBuilder when meth.IsConstructor => null
         | meth is MethodBuilder when meth.ReturnType is FixedType.Void => convertMethod(meth.Name, meth, false)
-        | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>
-          //assert2(false);
+        | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>          
           def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];          
           def isArray = arrayTypes.Any(t => prop.Getter.ReturnType.TryUnify(t));
           def ctor = if (isArray) "observableArray" else "observable";
           def prefix = $<#this.$(prop.Name) = ko.$ctor(#>;
-          <[ $(prefix : string) 
-            + Nemerle.WUI.Reactive.Utils.ToJson(this.$(prop.Ast.name))
-            + $(<#);#> : string) ]>
+          <[ $(prefix : string) + Nemerle.WUI.Reactive.Utils.ToJson(this.$(prop.Ast.name)) + $(<#);#> : string) ]>
         | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => convertMethod(prop.Name, prop.GetGetter() :> MethodBuilder)        
         | meth is MethodBuilder when meth.Header.ParametersDeclarations.Length == 0 => convertMethod(meth.Name, meth)          
         | _ =>  null          
       } 
+      
+      def createJsTypeBody(type: TypeInfo) : string {
+          def members = tb.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic);
+          def exprs1 = members.RevMap(convertMember).RevFilter(_ != null);
+          def exprs2 = exprs1.Map(e => <[ $e ]>);
+          
+          def constructors = tb.GetConstructors();
+      
+          when(constructors.Length > 1)
+              Message.Error("Multiple constructors are not supported");          
+      
+          def constructor = constructors.FirstOrDefault() :> MethodBuilder;                    
+          def constructorParams = if(constructor != null) constructor.GetParameters().Map(p => p.Name) else [];          
+          def constructorAssignments = constructorParams.Map(p => $"this.$(char.ToUpper(p[0]) + p.Substring(1)) = $p;");          
+          //def constructorBody = if(constructor != null) BuildMethod(tb, constructor, typer) else "";
+          //$constructorBody
+          
+          $<#
+          function $(type.Name)(..$(constructorParams)) {
+              ..$(constructorAssignments; " ")
+              ..$(exprs2)
+          }
+          #>
+      }
+      
+      assert2(false);
+      
+      def vmTypeBody  = createJsTypeBody(tb);
+      def otherTypeBodies = tb.GetNestedTypes(BF.Public|BF.NonPublic|BF.Instance).Map(createJsTypeBody);
+      def code = 
+$<#
+    $(vmTypeBody)
+    ..$(otherTypeBodies; " ")
+#>;
+      
+      <[ $(code : string) ]>
+      
+      /*
       
       //assert2(false);
       def members = tb.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic);
@@ -223,7 +242,27 @@ this.$name = function() {
       _ = tb.DefineWithSource(<[ decl:
           protected js(function : string) : string
           {""}
-        ]>);
+        ]>);*/
+    }
+    
+    public BuildMethod(tb : TypeBuilder, method : MethodBuilder, typer : Typer) : string {        
+        def oldEmitDebug = typer.Manager.Options.EmitDebug;
+        typer.Manager.Options.EmitDebug = false;
+        def methodTyper = Typer(tb, null, method, method.Env);        
+        methodTyper.RunFullTyping();
+        typer.Manager.Options.EmitDebug = oldEmitDebug;
+        
+        match(method.Header.Body) { 
+        | FunBody.Typed(typedBody) =>         
+            mutable jsAst = JsASTBuilder.Build(typedBody, false);
+            jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
+            jsAst = JsASTOptimizer.Optimize(jsAst);            
+            jsAst = JsASTOptimizer.FlattenAndRemoveVoids(jsAst);
+            jsAst = JsASTOptimizer.RemoveEmptyBranches(jsAst);
+            
+            JsASTWriter.Write(jsAst); 
+        | _ => Message.Error("Couldn't type body"); "// Error generating javascript, method body wasn't typed correctly";
+        }
     }
     
     /// Create nested type with given properties and return name of created type.

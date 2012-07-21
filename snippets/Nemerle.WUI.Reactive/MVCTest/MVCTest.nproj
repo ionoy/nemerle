@@ -151,6 +151,9 @@
     <Compile Include="MVVM\Tutorial_1_Introduction.n">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="MVVM\Tutorial_2_ListsAndCollections.n">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.n" />
   </ItemGroup>
   <ItemGroup>

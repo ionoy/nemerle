@@ -1,0 +1,70 @@
+﻿using Nemerle.Collections;
+using Nemerle.Text;
+using Nemerle.Utility;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+using Nemerle.Xml;
+using Nemerle.WUI.Reactive;
+using System.Xml.Linq;
+
+namespace MVCTest
+{
+  [Record, ViewModel]
+  public class ListsAndCollectionsViewModel
+  {
+    [Record]
+    public class SeatReservation 
+    {
+        public Name : string { get; set; }
+        public Meal : Meal { get; set; }        
+        public FormattedPrice : string { get { Meal.Price.ToString("0.00") } }
+    }
+    
+    [Record]
+    public class Meal 
+    {
+        public MealName : string { get; set; }
+        public Price : decimal { get; set; }
+    }
+    
+    public AvailableMeals : List[Meal] { get; set; }
+    public Seats          : List[SeatReservation] { get; set; }
+    public TotalSurcharge : decimal { get { Seats.Sum(s => s.Meal.Price : decimal) } }
+    
+    public AddSeat() : void 
+    {
+        Seats.Add(SeatReservation("", AvailableMeals[0]))
+    }
+    
+    public RemoveSeat(seat : SeatReservation) : bool 
+    {        
+        Seats.Remove(seat)
+    }
+  }
+
+  public partial module Views
+  {
+    [View()]
+    public ListsAndCollectionsView(viewModel : IntroductionViewModel) : XElement
+    {
+      _ = viewModel;
+      xml <# 
+        <div xmlns="">
+            <h2>Your seat reservations</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Passenger name</th><th>Meal</th><th>Surcharge</th><th></th>
+                    </tr>
+                </thead>                
+                <tbody> </tbody>
+            </table>
+        </div>
+      #>
+    }
+  }
+}
