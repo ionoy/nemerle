@@ -14,8 +14,8 @@ namespace Nemerle.WUI.Reactive
     public Optimize(ast : JsAST) : JsAST
     {  
         def allowedForAssignment = [typeof(JsAST.Call), typeof(JsAST.MethodRef), typeof(JsAST.LocalRef), 
-                                    typeof(JsAST.MethodCorLib), typeof(JsAST.Literal), typeof(JsAST.Code), 
-                                    typeof(JsAST.Void), typeof(JsAST.Ternary), typeof(JsAST.NotImpl)];
+                                    typeof(JsAST.Literal), typeof(JsAST.Code), typeof(JsAST.Void), 
+                                    typeof(JsAST.Ternary), typeof(JsAST.NotImpl)];
                                     
         def delayAssignment(e : JsAST, left : JsAST) {
             def delayAssignment = delayAssignment(_, left);

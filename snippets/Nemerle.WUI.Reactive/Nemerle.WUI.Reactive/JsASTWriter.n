@@ -55,8 +55,7 @@ $(Write(body, indent + 1))
         | Literal(String(val))                         => $<#"$val"#>
         | Literal(Bool(val))                           => $"$val"
         | LocalRef(name)                               => $"$name"
-        | MethodRef(obj, meth)                         => i() + $"$(Write(obj)).$meth"
-        | MethodCorLib(obj, meth)                      => i() + $"$obj.$meth"
+        | MethodRef(obj, meth)                         => i() + $"$(Write(obj)).$meth"        
         | OpCode(name)                                 => $"$name"        
         | Object(fields)                               => 
                     def fieldToObjectField((name, ast)) {

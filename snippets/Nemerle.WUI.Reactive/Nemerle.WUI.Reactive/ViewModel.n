@@ -163,38 +163,40 @@ namespace Nemerle.WUI.Reactive
         def code = 
           if (isDependent)
           $<#
-viewModel.$name = ko.dependentObservable(
-  function()
-  {
-    $scriptBody;
-  }, viewModel);#>
+this.$name = ko.computed(function() {
+    return $scriptBody;
+}, this);#>
           else
 $<#
-viewModel.$name =
-  function()
-  {
+this.$name = function() {
     $scriptBody;
-  };#>;
+};#>;
         <[ $(code : string) ]>
       }
+      
+      assert2(false);
       
       def convertMember(member : IMember) : PExpr
       {
         | meth is MethodBuilder when meth.Name.StartsWith("get_") || meth.Name.StartsWith("set_") => null //TODO: Add property IMethod.IsAccessor
         | meth is MethodBuilder when meth.IsConstructor => null
-        | meth is MethodBuilder when meth.ReturnType is FixedType.Void =>
-          convertMethod(meth.Name, meth, false)
-        | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => 
-          convertMethod(prop.Name, prop.GetGetter() :> MethodBuilder)
-
-        | meth is MethodBuilder when meth.Header.ParametersDeclarations.Length == 0 =>
-          convertMethod(meth.Name, meth)
-          
+        | meth is MethodBuilder when meth.ReturnType is FixedType.Void => convertMethod(meth.Name, meth, false)
+        | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>
+          //assert2(false);
+          def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];          
+          def isArray = arrayTypes.Any(t => prop.Getter.ReturnType.TryUnify(t));
+          def ctor = if (isArray) "observableArray" else "observable";
+          def prefix = $<#this.$(prop.Name) = ko.$ctor(#>;
+          <[ $(prefix : string) 
+            + Nemerle.WUI.Reactive.Utils.ToJson(this.$(prop.Ast.name))
+            + $(<#);#> : string) ]>
+        | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => convertMethod(prop.Name, prop.GetGetter() :> MethodBuilder)        
+        | meth is MethodBuilder when meth.Header.ParametersDeclarations.Length == 0 => convertMethod(meth.Name, meth)          
         | _ =>  null          
-      }
+      } 
       
-      assert2(false);
-      def members = tb.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public);
+      //assert2(false);
+      def members = tb.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic);
       def exprs1 = members.RevMap(convertMember).RevFilter(_ != null);
       def exprs2 = exprs1.Map(e => <[ _ = sb.AppendLine($e) ]>);
       
@@ -202,9 +204,10 @@ viewModel.$name =
         public GetViewModelScript() : string
         {
           def sb = System.Text.StringBuilder();
-          _ = sb.AppendLine("var viewModel = { };");
-          { ..$exprs2 }
-          _ = sb.AppendLine("ko.applyBindings(viewModel);");
+          _ = sb.AppendLine("function ViewModel() { ");
+          { ..$exprs2 }          
+          _ = sb.AppendLine("}");
+          _ = sb.AppendLine("ko.applyBindings(new ViewModel());");
           sb.ToString()
         }
         ]>);

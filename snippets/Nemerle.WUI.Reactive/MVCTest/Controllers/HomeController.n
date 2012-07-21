@@ -12,7 +12,7 @@ namespace MVCTest.Controllers
 	{
 	    public Index() : ActionResult 
 	    {
-            Content(Utils.MakePageHtml(BetterListViewModel("", ["Fries", "Eggs Benedict", "Ham", "Cheese"], ["Ham"]), Views.BetterListView));
+            Content("" /*Utils.MakePageHtml(BetterListViewModel("", ["Fries", "Eggs Benedict", "Ham", "Cheese"], ["Ham"]), Views.BetterListView)*/);
         }
     
         public Tutorial() : ActionResult

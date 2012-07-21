@@ -29,7 +29,7 @@ namespace Nemerle.WUI.Reactive
         | Literal        { Value : JsLiteral }
         | LocalRef       { Name : string }        
         | MethodRef      { Obj : JsAST; Method : string }
-        | MethodCorLib   { Obj : string; Method : string }
+        | StaticRef      { Type : string; Method : string }
         | OpCode         { Name : string; }
         | Object         { Fields : list[(string * JsAST)] }
         | Seq            { Items : list[JsAST] }

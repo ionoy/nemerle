@@ -27,11 +27,10 @@ namespace Nemerle.WUI.Reactive
             | ArrayIndexer                      => JsAST.NotImpl()
             | Assign(s, t)                      => JsAST.Assign(Build(s), Build(t))
             | Base                              => JsAST.NotImpl()
-            | Block(body = body)                => Build(body)
+            | Block(body = body)                => Build(body) 
             | Cache                             => JsAST.NotImpl()
             | CacheRef                          => JsAST.NotImpl()
-            | Call(StaticRef(from, mem, _), parms, _) => JsKnownMembers.Convert(from.TypeInfo.FullName, mem, parms.Map(p => Build(p.expr)))
-            | Call(func, parms, istail)         => JsAST.Call(Build(func), parms.Map(p => Build(p.expr)))
+            | Call as call                      => JsKnownMembers.Convert(call, Build(_, false))
             | ClosureFieldOf                    => JsAST.NotImpl()
             | ClosureObjectOf                   => JsAST.NotImpl()
             | ConstantObjectRef                 => JsAST.NotImpl() 
@@ -86,7 +85,7 @@ namespace Nemerle.WUI.Reactive
             | MethodAddress                     => JsAST.NotImpl()
             | MethodOf                          => JsAST.NotImpl()
             | MethodRef(obj, meth, _, _)        => 
-                if(meth.Name.StartsWith("get_"))
+                if(meth.Name.StartsWith("get_") || meth.Name.StartsWith("set_"))
                     JsAST.MethodRef(Build(obj), meth.Name.Substring(4))
                 else
                     JsAST.MethodRef(Build(obj), meth.Name)

@@ -17,7 +17,7 @@ namespace MVCTest
   {
     public FirstName     : string { get; set; }
     public LastName      : string { get; set; }
-    public FullName      : string { get { FirstName + LastName } }
+    public FullName      : string { get { FirstName + " " + LastName } }
         
     CapitalizeLastName() : void
     {
@@ -33,13 +33,13 @@ namespace MVCTest
       _ = viewModel;
       xml <# 
         <div xmlns="">
-            <p>First name: <strong data-bind="text: FirstName"></strong></p>
-            <p>Last name: <strong data-bind="text: LastName"></strong></p>
+            <p>First name: <strong data-bind="text: FirstName"> </strong></p>
+            <p>Last name: <strong data-bind="text: LastName"> </strong></p>
 
             <p>First name: <input data-bind="value: FirstName" /></p>
             <p>Last name: <input data-bind="value: LastName" /></p>
 
-            <p>Full name: <strong data-bind="text: FullName"></strong></p>
+            <p>Full name: <strong data-bind="text: FullName"> </strong></p>
 
             <button data-bind="click: CapitalizeLastName">Go caps</button>
         </div>
