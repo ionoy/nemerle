@@ -14,5 +14,10 @@ namespace MVCTest.Controllers
 	    {
             Content(Utils.MakePageHtml(BetterListViewModel("", ["Fries", "Eggs Benedict", "Ham", "Cheese"], ["Ham"]), Views.BetterListView));
         }
-	}
+    
+        public Tutorial() : ActionResult
+        {
+            View(Utils.MakePageHtml(IntroductionViewModel("Steve", "Smith"), Views.IntroductionView) : object);
+        }
+    }
 }

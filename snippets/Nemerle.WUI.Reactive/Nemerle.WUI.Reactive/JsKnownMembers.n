@@ -12,46 +12,46 @@ namespace Nemerle.WUI.Reactive
 {  
   module JsKnownMembers
   {
-      public Convert(typeName : string, member : IMember) : option[JsAST]
+      public Convert(typeName : string, member : IMember, parms : list[JsAST]) : JsAST
       {
           match(member.MemberKind) {
-          | Method      => ConvertMethod(typeName, member)            
-          | Field       => ConvertField(typeName, member)
-          | Property    => ConvertProperty(typeName, member)
+          | Method      => ConvertMethod(typeName, member, parms)            
+          | Field       => ConvertField(typeName, member, parms)
+          | Property    => ConvertProperty(typeName, member, parms)
           | _ => 
             Message.Warning($"MemberKind $(member.MemberKind) not supported");
-            None()              
+            JsAST.NotImpl()              
           }
       }
       
-      public ConvertMethod(typeName : string, member : IMember) : option[JsAST]
+      public ConvertMethod(typeName : string, member : IMember, parms : list[JsAST]) : JsAST
       {
-        match(member.Name) {
-        | "op_Inequality" => Some(JsAST.OpCode("!="))
-        | "Concat" when typeName == typeof(string).FullName => Some(JsAST.MethodCorLib("string", "concat"))
+        match(member.Name, parms) {
+        | ("op_Inequality", _) => JsAST.Call(JsAST.OpCode("!="), parms)
+        | ("Concat", h :: t) when typeName == typeof(string).FullName => JsAST.Call(JsAST.MethodRef(h, "concat"), t)
         | _ => 
             Message.Warning($"member.Name $(member.Name) unsupported by type $(typeName)");
-            None();
+            JsAST.NotImpl();
         }
       }
       
-      public ConvertField(typeName : string, member : IMember) : option[JsAST]
+      public ConvertField(typeName : string, member : IMember, parms : list[JsAST]) : JsAST
       {
         match(member.Name) {
-        | _ when typeName == typeof(list[_].Nil).FullName => Some(JsAST.Array([]))
+        | _ when typeName == typeof(list[_].Nil).FullName => JsAST.Array([])
         | _ => 
             Message.Warning($"member.Name $(member.Name) unsupported by type $typeName");
-            None();
+            JsAST.NotImpl();
         }
       }
       
-      public ConvertProperty(typeName : string, member : IMember) : option[JsAST]
+      public ConvertProperty(typeName : string, member : IMember, parms : list[JsAST]) : JsAST
       {
         match(member.Name) {
-        | _ when typeName == typeof(list[_].Nil).FullName => Some(JsAST.Array([]))
+        | _ when typeName == typeof(list[_].Nil).FullName => JsAST.Array([])
         | _ => 
             Message.Warning($"member.Name $(member.Name) unsupported by type $typeName");
-            None();
+            JsAST.NotImpl();
         }
       }
   }

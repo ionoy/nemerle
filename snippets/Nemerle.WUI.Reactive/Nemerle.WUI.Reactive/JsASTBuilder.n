@@ -20,7 +20,7 @@ namespace Nemerle.WUI.Reactive
             assert2(false);
             
         match(TryToConvertKnownTemplates(expr)) {
-        | Some(jsast) 
+        | Some(jsast) => jsast
         | _ =>
           match(expr) {
             | Array(args, dims)                 => JsAST.NotImpl()
@@ -30,6 +30,7 @@ namespace Nemerle.WUI.Reactive
             | Block(body = body)                => Build(body)
             | Cache                             => JsAST.NotImpl()
             | CacheRef                          => JsAST.NotImpl()
+            | Call(StaticRef(from, mem, _), parms, _) => JsKnownMembers.Convert(from.TypeInfo.FullName, mem, parms.Map(p => Build(p.expr)))
             | Call(func, parms, istail)         => JsAST.Call(Build(func), parms.Map(p => Build(p.expr)))
             | ClosureFieldOf                    => JsAST.NotImpl()
             | ClosureObjectOf                   => JsAST.NotImpl()
@@ -84,7 +85,11 @@ namespace Nemerle.WUI.Reactive
             | Match(expr, cases)                => JsAST.NotImpl()   //This shouldn't be in TExpr after optimization
             | MethodAddress                     => JsAST.NotImpl()
             | MethodOf                          => JsAST.NotImpl()
-            | MethodRef(obj, meth, _, _)        => JsAST.MethodRef(Build(obj), meth.Name)
+            | MethodRef(obj, meth, _, _)        => 
+                if(meth.Name.StartsWith("get_"))
+                    JsAST.MethodRef(Build(obj), meth.Name.Substring(4))
+                else
+                    JsAST.MethodRef(Build(obj), meth.Name)
             | MultipleAssign                    => JsAST.NotImpl()
             | OpCode(name)                      => ConvertToJsOpCode(name)
             | PropertyMember                    => JsAST.NotImpl()
@@ -92,11 +97,7 @@ namespace Nemerle.WUI.Reactive
             | Sequence(e1, e2)                  => JsAST.Seq([Build(e1), Build(e2)])
             | StaticEventRef                    => JsAST.NotImpl()
             | StaticPropertyRef                 => JsAST.NotImpl()
-            | StaticRef(from, mem, _)              =>                 
-                match(JsKnownMembers.Convert(from.TypeInfo.FullName, mem)) {
-                | Some(some) => some
-                | None => JsAST.NotImpl()
-                }
+            | StaticRef(from, mem, _)           => JsAST.NotImpl()
             | Switch                            => JsAST.NotImpl()
             | This                              => JsAST.This()
             | Throw                             => JsAST.NotImpl()

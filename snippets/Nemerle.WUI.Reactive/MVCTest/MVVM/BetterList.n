@@ -18,7 +18,7 @@ namespace MVCTest
     public ItemToAdd     : string { get; set; }
     public AllItems      : list[string] { get; set; }
     public SelectedItems : list[string] { get; set; }
-        
+        /*
     public Test() : void 
     {   
         
@@ -36,8 +36,9 @@ namespace MVCTest
         | _ => false
         }
         def output = result;
+        
     }
-    
+    */
     public class Server 
     {
         public GetTime() : string

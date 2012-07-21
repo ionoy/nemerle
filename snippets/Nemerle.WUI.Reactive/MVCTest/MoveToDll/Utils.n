@@ -61,22 +61,19 @@ namespace Nemerle.WUI.Reactive
     public MakePageHtml[ViewModel](viewModel : ViewModel, makeView : ViewModel -> XElement) : string
       where ViewModel: IViewModel
     {
-      def testView = makeView(viewModel);
-      def page = Template.Load("PageTemplate.htm");
-      
-      page.SetContent("MainView", testView);
-      
-      //TODO: Implement support of CDATA
-      def script = XElement.Parse($<#
+      def testView = makeView(viewModel);            
+      def script = $<#
   <script type='text/javascript'>
     /*<![CDATA[*/
     $(viewModel.GetViewModelScript())
     /*]]>*/
   </script>
-      #>);
-      page.SetContent("Script", script);
+      #>;
       
-      page.ToString();
+      testView.ToString() + script;
+      /*page.SetContent("Script", script);
+      
+      page.ToString();*/
     }
   }
 }
