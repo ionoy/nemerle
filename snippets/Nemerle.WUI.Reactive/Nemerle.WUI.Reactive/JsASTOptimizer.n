@@ -16,7 +16,8 @@ namespace Nemerle.WUI.Reactive
         def allowedForAssignment = [typeof(JsAST.Call), typeof(JsAST.MethodRef), typeof(JsAST.LocalRef), 
                                     typeof(JsAST.Literal), typeof(JsAST.Code), typeof(JsAST.Void), 
                                     typeof(JsAST.Ternary), typeof(JsAST.NotImpl)];
-                                    
+        def allowedCallTargets = [typeof(JsAST.LocalRef), typeof(JsAST.Literal)];
+        
         def delayAssignment(e : JsAST, left : JsAST) {
             def delayAssignment = delayAssignment(_, left);
             match(e) {
@@ -46,19 +47,33 @@ namespace Nemerle.WUI.Reactive
             | Void => JsAST.Void()
             }
         }
-    
-        JsAST.Recurse(ast, a : JsAST => 
-        match(a) { 
+        
+        mutable counter = 0;        
+        JsAST.Recurse(ast, a : JsAST => {
+        counter++;
+        def varName = "$__da" + counter;
+        match(a) {
         | Call(OpCode("==="), something :: Literal(Bool(true)) :: []) 
         | Call(OpCode("==="), Literal(Bool(true)) :: something :: [])       => something
         | If(Call(func, something :: If(c, t, e) :: []), then, els)
         | If(Call(func, If(c, t, e) :: something :: []), then, els)         => JsAST.If(JsAST.Call(func, JsAST.Ternary(c, t, e) :: [something]), then, els)
+        | If(Call(OpCode as op, Seq as seq :: rest), then, els)             =>             
+            JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()), 
+                        delayAssignment(seq, JsAST.LocalRef(varName)),
+                        JsAST.If(JsAST.Call(op, JsAST.LocalRef(varName) :: rest), then, els)]);                           
+        | If(Call(OpCode as op, Call(MethodRef(Seq as seq,  m), parms) :: rest), then, els)            =>             
+            JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()), 
+                        delayAssignment(seq, JsAST.LocalRef(varName)),
+                        JsAST.If(JsAST.Call(op, JsAST.Call(JsAST.MethodRef(JsAST.LocalRef(varName), m), parms) :: rest), then, els)]);
+        | If(Call(OpCode as op, Call as call :: rest), then, els) =>             
+            JsAST.Seq([JsAST.DefValue(varName, call), 
+                       JsAST.If(JsAST.Call(op, JsAST.LocalRef(varName) :: rest), then, els)])
         | DefValue(l, r) when allowedForAssignment.Any(al => al == r.GetType()) => a
         | Assign(l, r) when allowedForAssignment.Any(al => al == r.GetType()) => a
         | Assign(left, expr)   => delayAssignment(expr, left);
         | DefValue(left, expr) => JsAST.Seq([JsAST.DefValue(left, JsAST.Void()), delayAssignment(expr, JsAST.LocalRef(left))]);
         | _ => a
-        })
+        }})
     }
     
     public RemoveEmptyBranches(ast : JsAST) : JsAST

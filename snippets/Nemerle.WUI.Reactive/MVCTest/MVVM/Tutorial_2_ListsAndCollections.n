@@ -19,8 +19,8 @@ namespace MVCTest
     public class SeatReservation 
     {
         public Name : string { get; set; }
-        public Meal : Meal { get; set; }        
-        public FormattedPrice : string { get { Meal.Price.ToString("0.00") } }
+        public OrderedMeal : Meal { get; set; }        
+        public FormattedPrice : string { get { this.OrderedMeal?.Price.ToString("0.00") ?? "None" } }
     }
     
     [Record]
@@ -32,9 +32,9 @@ namespace MVCTest
     
     public AvailableMeals : List[Meal] { get; set; }
     public Seats          : List[SeatReservation] { get; set; }
-    public TotalSurcharge : decimal { get { Seats.Sum(s => s.Meal.Price : decimal) } }
+    public TotalSurcharge : decimal { get { 0 } }
     
-    public AddSeat() : void 
+    /*public AddSeat() : void 
     {
         Seats.Add(SeatReservation("", AvailableMeals[0]))
     }
@@ -42,13 +42,13 @@ namespace MVCTest
     public RemoveSeat(seat : SeatReservation) : bool 
     {        
         Seats.Remove(seat)
-    }
+    }*/
   }
 
   public partial module Views
   {
     [View()]
-    public ListsAndCollectionsView(viewModel : IntroductionViewModel) : XElement
+    public ListsAndCollectionsView(viewModel : ListsAndCollectionsViewModel) : XElement
     {
       _ = viewModel;
       xml <# 

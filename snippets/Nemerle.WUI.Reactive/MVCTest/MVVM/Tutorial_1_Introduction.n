@@ -12,7 +12,7 @@ using System.Xml.Linq;
 
 namespace MVCTest
 {
-  [Record, ViewModel]
+  [Record, /*ViewModel*/]
   public class IntroductionViewModel
   {
     public FirstName     : string { get; set; }

@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace Nemerle.WUI.Reactive
 {
-  public interface IViewModel : IJsonSupport
+  public interface IViewModel
   {
     GetViewModelScript() : string;
   }

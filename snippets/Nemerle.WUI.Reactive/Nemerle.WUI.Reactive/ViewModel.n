@@ -122,26 +122,28 @@ namespace Nemerle.WUI.Reactive
           ctb.Compile();
       }
       
-      def convertMethod(name : string, meth : MethodBuilder, isDependent = true) : PExpr
+      def convertMethod(type : TypeInfo, name : string, meth : MethodBuilder, isDependent = true)
       {
         #region Type method body
         def typer = typer;
         def body = meth.Body;
         def oldEmitDebug = typer.Manager.Options.EmitDebug;
-        typer.Manager.Options.EmitDebug = false;
-        def methodTyper = Typer(tb, null, meth, meth.Env);        
+        typer.Manager.Options.EmitDebug = false;        
+        def methodTyper = Typer(type :> TypeBuilder, null, meth, meth.Env);        
         methodTyper.RunFullTyping();
         typer.Manager.Options.EmitDebug = oldEmitDebug;
         #endregion
         
         def scriptBody = match(meth.Header.Body) { 
-        | FunBody.Typed(typedBody) =>         
+        | FunBody.Typed(typedBody) =>
+            assert2(false);
             mutable jsAst = JsASTBuilder.Build(typedBody, false);
             jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
-            jsAst = JsASTOptimizer.Optimize(jsAst);            
-            jsAst = JsASTOptimizer.FlattenAndRemoveVoids(jsAst);
-            jsAst = JsASTOptimizer.RemoveEmptyBranches(jsAst);            
-            JsASTWriter.Write(jsAst); 
+            def jsAst' = JsASTOptimizer.Optimize(jsAst); 
+            def jsAst'' = JsASTOptimizer.FlattenAndRemoveVoids(jsAst');
+            def jsAst''' = JsASTOptimizer.RemoveEmptyBranches(jsAst'');            
+            def code = JsASTWriter.Write(jsAst''');
+            code
         | _ => Message.Error("Couldn't type body"); "// Error generating javascript, method body wasn't typed correctly";
         }
       
@@ -157,60 +159,97 @@ $<#
 this.$name = function() {
     $scriptBody;
 };#>;
-        <[ $(code : string) ]>
+        code
       }
             
-      def convertMember(member : IMember) : PExpr
+      def convertMember(member : IMember)
       {
         | meth is MethodBuilder when meth.Name.StartsWith("get_") || meth.Name.StartsWith("set_") => null //TODO: Add property IMethod.IsAccessor
         | meth is MethodBuilder when meth.IsConstructor => null
-        | meth is MethodBuilder when meth.ReturnType is FixedType.Void => convertMethod(meth.Name, meth, false)
+        | meth is MethodBuilder when meth.ReturnType is FixedType.Void => convertMethod(member.DeclaringType, meth.Name, meth, false)
         | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>          
           def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];          
           def isArray = arrayTypes.Any(t => prop.Getter.ReturnType.TryUnify(t));
           def ctor = if (isArray) "observableArray" else "observable";
-          def prefix = $<#this.$(prop.Name) = ko.$ctor(#>;
-          <[ $(prefix : string) + Nemerle.WUI.Reactive.Utils.ToJson(this.$(prop.Ast.name)) + $(<#);#> : string) ]>
-        | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => convertMethod(prop.Name, prop.GetGetter() :> MethodBuilder)        
-        | meth is MethodBuilder when meth.Header.ParametersDeclarations.Length == 0 => convertMethod(meth.Name, meth)          
+          def prefix = $<#this.$(prop.Name) = ko.$ctor(#>;                    
+          def paramName = char.ToLower(prop.Name[0]) + prop.Name.Substring(1);
+          prefix + paramName + ");"
+        | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => convertMethod(member.DeclaringType, prop.Name, prop.GetGetter() :> MethodBuilder)        
+        | meth is MethodBuilder when meth.Header.ParametersDeclarations.Length == 0 => convertMethod(member.DeclaringType, meth.Name, meth)          
         | _ =>  null          
       } 
-      
-      def createJsTypeBody(type: TypeInfo) : string {
-          def members = tb.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic);
+      //assert2(false);
+      def createJsTypeBody(type: TypeInfo) {
+          def members = type.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic);
           def exprs1 = members.RevMap(convertMember).RevFilter(_ != null);
-          def exprs2 = exprs1.Map(e => <[ $e ]>);
           
-          def constructors = tb.GetConstructors();
+          def constructors = type.GetConstructors(BF.Public | BF.Instance);
       
           when(constructors.Length > 1)
               Message.Error("Multiple constructors are not supported");          
       
           def constructor = constructors.FirstOrDefault() :> MethodBuilder;                    
-          def constructorParams = if(constructor != null) constructor.GetParameters().Map(p => p.Name) else [];          
-          def constructorAssignments = constructorParams.Map(p => $"this.$(char.ToUpper(p[0]) + p.Substring(1)) = $p;");          
-          //def constructorBody = if(constructor != null) BuildMethod(tb, constructor, typer) else "";
-          //$constructorBody
+          def constructorParams = if(constructor != null) constructor.GetParameters().Map(p => p.Name) else [];                  
+          def header = $<# function $(type.Name)(..$(constructorParams)) { #>;
+          def body = $<# ..$(exprs1; "\n") #>;
+          def footer = <# }; #>;
           
           $<#
-          function $(type.Name)(..$(constructorParams)) {
-              ..$(constructorAssignments; " ")
-              ..$(exprs2)
-          }
+            $header
+            $body
+            $footer
           #>
       }
       
-      assert2(false);
-      
+      //assert2(false);
       def vmTypeBody  = createJsTypeBody(tb);
-      def otherTypeBodies = tb.GetNestedTypes(BF.Public|BF.NonPublic|BF.Instance).Map(createJsTypeBody);
-      def code = 
-$<#
-    $(vmTypeBody)
-    ..$(otherTypeBodies; " ")
+      def otherTypeBodies = tb.GetNestedTypes(BF.Public|BF.NonPublic|BF.Instance).Map(t => <[ sb.AppendLine($(createJsTypeBody(t))) ]>);
+  
+      def properties = tb.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic)
+                         .OfType.[PropertyBuilder]()
+                         .Where(prop => prop.AutoPropertyField.IsSome);
+      def initialParams = properties.Map(p => p.Name);
+      def initialParamInits = properties.Map(p => <[
+         $("var " + p.Name + " = ToTypedObject(" : string) 
+         + Nemerle.WUI.Reactive.Utils.ToJson(this.$(p.Ast.name)) 
+         + $(");" : string);
+      ]>).Map(i => <[ _ = sb.AppendLine($i) ]>);
+      def toTypedObjectFunction = 
+<#
+function ToTypedObject(obj) {
+    if(!!obj.$type) {
+        var typename = obj.$type.replace(/.*\+(.+),.+/, "$1");
+        var typedObj = eval('new ' + typename + '()');        
+        for(var p in obj)
+            if(obj.hasOwnProperty(p)) 
+                typedObj[p] = ToTypedObject(obj[p]);
+        return typedObj;
+    }               
+    if(obj instanceof Array) {
+        var newArr = [];
+        for (var i=0, l = obj.length; i < l; newArr.push(ToTypedObject(obj[i++])));
+        return newArr;
+    }
+    return obj;
+};
 #>;
-      
-      <[ $(code : string) ]>
+      def applyBindings = 
+$<#    
+    ko.applyBindings(new $(tb.Name)(..$(initialParams)));
+#>;
+      _ = tb.DefineWithSource(<[ decl:
+        public GetViewModelScript() : string
+        {
+          def sb = System.Text.StringBuilder();
+          _ = sb.AppendLine($toTypedObjectFunction);
+          { ..$otherTypeBodies }
+          _ = sb.AppendLine($vmTypeBody);
+          { ..$initialParamInits }
+          _ = sb.AppendLine($applyBindings);
+          sb.ToString()
+        }
+        ]>);
+        
       
       /*
       

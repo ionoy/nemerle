@@ -8,10 +8,12 @@ using System.Linq;
 using System.Diagnostics;
 using System.IO;
 
+using Nemerle.Extensions;
 using Nemerle.Xml;
 using Nemerle.WUI.Reactive;
 using System.Xml.Linq;
-using Test;
+
+using Newtonsoft.Json;
 
 namespace Nemerle.WUI.Reactive
 {
@@ -31,13 +33,7 @@ namespace Nemerle.WUI.Reactive
     
     public ToJson[T](value : T) : string
     {
-      match (value)
-      {
-        | x is string       => ToJson(x)
-        | x is IJsonSupport => x.ToJson()
-        | x is bool         => if (x) "true" else "false"
-        | _                 => value.ToString()
-      }      
+        JsonConvert.SerializeObject(value, JsonSerializerSettings() <- TypeNameHandling = TypeNameHandling.Objects);
     }
 
     public MakeAndShowPage[ViewModel](pagePath  : string, 

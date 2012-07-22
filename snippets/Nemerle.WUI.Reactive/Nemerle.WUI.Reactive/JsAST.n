@@ -19,11 +19,13 @@ namespace Nemerle.WUI.Reactive
         | Break
         | Call           { Fun : JsAST; Parameters : list[JsAST]; }
         | Continue       { LoopName : string }
+        | Constructor    { Type : TypeInfo }
         | DefFunction    { Obj : JsAST; Parameters : list[JsAST]; Body : JsAST }
         | DefValue       { Name : string; Val : JsAST }
         | For            { ItName : string; Collection : JsAST; Body : JsAST }
         | Goto           { LabelId : int }
         | If             { Cond : JsAST; Body : JsAST; ElseBody : JsAST }
+        | Indexer        { Obj : JsAST }
         | JustIf         { Cond : JsAST; Body : JsAST }        
         | Label          { Id : int; Body : JsAST }
         | Literal        { Value : JsLiteral }

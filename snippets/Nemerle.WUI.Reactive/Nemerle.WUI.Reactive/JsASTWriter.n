@@ -23,6 +23,8 @@ namespace Nemerle.WUI.Reactive
         | BinaryOperator(op, l, r)                     => $"$(Write(l)) $op $(Write(r))"
         | Break                                        => i() + "break"
         | Call(OpCode as op, e1 :: e2 :: [])           => $"$(Write(e1)) $(Write(op)) $(Write(e2))"
+        | Call(Constructor(type), parms)               => $<#new $(type.Name)(..$(parms; ","; Write(_, indent)))#>
+        | Call(Indexer(obj), parms)                    => $<#$(Write(obj))[..$(parms; ","; Write(_, indent))]#>    
         | Call(op, parms)                              => $<#$(Write(op))(..$(parms; ","; Write(_, indent)))#>    
         | Continue(id)                                 => i() + $"continue $id"
         | DefValue(name, Void)                         => i() + $"var $name"      
