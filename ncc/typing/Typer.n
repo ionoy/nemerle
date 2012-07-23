@@ -148,8 +148,8 @@ namespace Nemerle.Compiler
     /** Prepared as reduced version of typer, ready to be passed to macros */
     public this (tb : TypeBuilder, tenv : TypeVarEnv, mb : MethodBuilder, env : GlobalEnv)
     {
-      this (env.Manager, tb, mb);
       this.local_context = LocalContext.Empty; // sometimes it is needed
+      this (env.Manager, tb, mb);      
       this.env = env;
       when (tenv != null)
         this.tenv = tenv;
