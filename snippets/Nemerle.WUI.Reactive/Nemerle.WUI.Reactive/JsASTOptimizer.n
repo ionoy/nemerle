@@ -11,42 +11,13 @@ namespace Nemerle.WUI.Reactive
 {
   public module JsASTOptimizer
   { 
+    allowedForAssignment : list[Type] = [typeof(JsAST.Call), typeof(JsAST.MethodRef), typeof(JsAST.LocalRef), 
+                                         typeof(JsAST.Literal), typeof(JsAST.Code), typeof(JsAST.Void), 
+                                         typeof(JsAST.Ternary), typeof(JsAST.NotImpl)];
+    allowedCallTargets : list[Type] = [typeof(JsAST.LocalRef), typeof(JsAST.Literal)];
+    
     public Optimize(ast : JsAST) : JsAST
     {  
-        def allowedForAssignment = [typeof(JsAST.Call), typeof(JsAST.MethodRef), typeof(JsAST.LocalRef), 
-                                    typeof(JsAST.Literal), typeof(JsAST.Code), typeof(JsAST.Void), 
-                                    typeof(JsAST.Ternary), typeof(JsAST.NotImpl)];
-        def allowedCallTargets = [typeof(JsAST.LocalRef), typeof(JsAST.Literal)];
-        
-        def delayAssignment(e : JsAST, left : JsAST) {
-            def delayAssignment = delayAssignment(_, left);
-            match(e) {
-            | Seq(exprs) => 
-                def newExprs = match(exprs.Rev()) {
-                | last :: allButLast => delayAssignment(last) :: allButLast
-                | r => r
-                }
-                JsAST.Seq(newExprs.Rev())
-            | TryFinally(b, h) => JsAST.TryFinally(delayAssignment(b), delayAssignment(h))
-            | Assign(l, r)     => JsAST.Assign(l, delayAssignment(r))
-            | If(c, t, e)      => JsAST.If(c, delayAssignment(t), delayAssignment(e))
-            | Switch(e, cases) => JsAST.Switch(e, cases.Map(c => JsAST.SwitchCase(c.Id, delayAssignment(c.Body))))
-            | WhileNamed(c, b, n) => 
-                def newBody = match(b) {
-                | Seq(bodyItems) => 
-                    def newItems = match(bodyItems.Rev()) {
-                    | Break :: secondToLast :: rest => JsAST.Break() :: delayAssignment(secondToLast) :: rest;
-                    | last :: rest => delayAssignment(last) :: rest;
-                    }
-                    JsAST.Seq(newItems.Rev())
-                | something => JsAST.Assign(left, delayAssignment(something))
-                }
-                JsAST.WhileNamed(c, newBody, n)
-            | e when allowedForAssignment.Any(al => al == e.GetType()) => JsAST.Assign(left, e)
-            | Undefined
-            | Void => JsAST.Void()
-            }
-        }
         
         mutable counter = 0;        
         JsAST.Recurse(ast, a : JsAST => {
@@ -55,25 +26,36 @@ namespace Nemerle.WUI.Reactive
         match(a) {
         | Call(OpCode("==="), something :: Literal(Bool(true)) :: []) 
         | Call(OpCode("==="), Literal(Bool(true)) :: something :: [])       => something
+        | Call(OpCode as op, Call(MethodRef(Seq as seq,  m), parms) as call :: rest) => 
+            JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()),
+                       DelayAssignment(call, JsAST.LocalRef(varName)),
+                       JsAST.Call(op, JsAST.LocalRef(varName) :: rest)])
+        | Call(OpCode as op, head :: (Call(MethodRef(Seq as seq,  m), parms) as call) :: []) => 
+            JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()),
+                       DelayAssignment(call, JsAST.LocalRef(varName)),
+                       JsAST.Call(op, [head, JsAST.LocalRef(varName)])])
+        | Call(OpCode(op), something :: Literal(Null) :: []) 
+        | Call(OpCode(op), Literal(Null) :: something :: [])             => 
+            JsAST.Call(JsAST.OpCode("&&"), [JsAST.Call(JsAST.OpCode(op), [something, JsAST.Literal(JsLiteral.Null())]), JsAST.Call(JsAST.OpCode(op), [JsAST.TypeOf(something), JsAST.Literal(JsLiteral.String("undefined"))])])
         | If(Call(func, something :: If(c, t, e) :: []), then, els)
         | If(Call(func, If(c, t, e) :: something :: []), then, els)         => JsAST.If(JsAST.Call(func, JsAST.Ternary(c, t, e) :: [something]), then, els)
         | If(Call(OpCode as op, Seq as seq :: rest), then, els)             =>             
             JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()), 
-                        delayAssignment(seq, JsAST.LocalRef(varName)),
+                        DelayAssignment(seq, JsAST.LocalRef(varName)),
                         JsAST.If(JsAST.Call(op, JsAST.LocalRef(varName) :: rest), then, els)]);                           
         | If(Call(OpCode as op, Call(MethodRef(Seq as seq,  m), parms) :: rest), then, els)            =>             
             JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()), 
-                        delayAssignment(seq, JsAST.LocalRef(varName)),
-                        JsAST.If(JsAST.Call(op, JsAST.Call(JsAST.MethodRef(JsAST.LocalRef(varName), m), parms) :: rest), then, els)]);
+                        DelayAssignment(seq, JsAST.LocalRef(varName)),
+                        JsAST.If(JsAST.Call(op, JsAST.Call(JsAST.MethodRef(JsAST.LocalRef(varName), m), parms) :: rest), then, els)]);        
         | If(Call(OpCode as op, Call as call :: rest), then, els) =>             
             JsAST.Seq([JsAST.DefValue(varName, call), 
                        JsAST.If(JsAST.Call(op, JsAST.LocalRef(varName) :: rest), then, els)])
         | DefValue(l, r) when allowedForAssignment.Any(al => al == r.GetType()) => a
         | Assign(l, r) when allowedForAssignment.Any(al => al == r.GetType()) => a
-        | Assign(left, expr)   => delayAssignment(expr, left);
-        | DefValue(left, expr) => JsAST.Seq([JsAST.DefValue(left, JsAST.Void()), delayAssignment(expr, JsAST.LocalRef(left))]);
+        | Assign(left, expr)   => DelayAssignment(expr, left);
+        | DefValue(left, expr) => JsAST.Seq([JsAST.DefValue(left, JsAST.Void()), DelayAssignment(expr, JsAST.LocalRef(left))]);
         | _ => a
-        }})
+        }}, false)
     }
     
     public RemoveEmptyBranches(ast : JsAST) : JsAST
@@ -136,6 +118,43 @@ namespace Nemerle.WUI.Reactive
         def switch = JsAST.Switch(JsAST.LocalRef(currentLabel), cases);
         def while_ = JsAST.While(JsAST.Literal(JsLiteral.Bool(true)), switch);
         JsAST.Seq([currentLabelDef, while_]);
+    }
+    
+    DelayAssignment(expr : JsAST, left : JsAST) : JsAST
+    {
+        def delayAssignment = DelayAssignment(_, left);
+        match(expr) {
+        | Seq(exprs) => 
+            def newExprs = match(exprs.Rev()) {
+            | last :: allButLast => delayAssignment(last) :: allButLast
+            | r => r
+            }
+            JsAST.Seq(newExprs.Rev())
+        | TryFinally(b, h) => JsAST.TryFinally(delayAssignment(b), delayAssignment(h))
+        | Assign(l, r)     => JsAST.Assign(l, delayAssignment(r))
+        | If(c, t, e)      => JsAST.If(c, delayAssignment(t), delayAssignment(e))
+        | Switch(e, cases) => JsAST.Switch(e, cases.Map(c => JsAST.SwitchCase(c.Id, delayAssignment(c.Body))))
+        | WhileNamed(c, b, n) => 
+            def newBody = match(b) {
+            | Seq(bodyItems) => 
+                def newItems = match(bodyItems.Rev()) {
+                | Break :: secondToLast :: rest => JsAST.Break() :: delayAssignment(secondToLast) :: rest;
+                | last :: rest => delayAssignment(last) :: rest;
+                }
+                JsAST.Seq(newItems.Rev())
+            | something => JsAST.Assign(left, delayAssignment(something))
+            }
+            JsAST.WhileNamed(c, newBody, n)
+        | e when allowedForAssignment.Any(al => al == e.GetType()) => JsAST.Assign(left, e)
+        | Undefined
+        | Void => JsAST.Void()
+        | NotImpl => expr
+        }
+    }
+    
+    public MakeReturn(ast : JsAST) : JsAST 
+    {
+        JsAST.Seq([JsAST.DefValue("__returnValue", JsAST.Void()), DelayAssignment(ast, JsAST.LocalRef("__returnValue")), JsAST.Return(JsAST.LocalRef("__returnValue"))])        
     }
     
     IterateAST(ast : JsAST) : IEnumerable[JsAST] 

@@ -19,8 +19,11 @@ namespace MVCTest
     public class SeatReservation 
     {
         public Name : string { get; set; }
-        public OrderedMeal : Meal { get; set; }        
-        public FormattedPrice : string { get { this.OrderedMeal?.Price.ToString("0.00") ?? "None" } }
+        public Meal : Meal { get; set; }        
+        public FormattedPrice : string 
+        { 
+            get { if(Meal != null) Meal.Price.ToString() else "None" } 
+        }
     }
     
     [Record]
@@ -32,9 +35,18 @@ namespace MVCTest
     
     public AvailableMeals : List[Meal] { get; set; }
     public Seats          : List[SeatReservation] { get; set; }
-    public TotalSurcharge : decimal { get { 0 } }
+    public TotalSurcharge : decimal 
+    { 
+        get { 
+            mutable total = 0m;
+            foreach(seat in Seats) {
+                total = total + seat.Meal.Price;
+            }
+            total
+        } 
+    }
     
-    /*public AddSeat() : void 
+    public AddSeat() : void 
     {
         Seats.Add(SeatReservation("", AvailableMeals[0]))
     }
@@ -42,7 +54,7 @@ namespace MVCTest
     public RemoveSeat(seat : SeatReservation) : bool 
     {        
         Seats.Remove(seat)
-    }*/
+    }
   }
 
   public partial module Views
@@ -53,16 +65,27 @@ namespace MVCTest
       _ = viewModel;
       xml <# 
         <div xmlns="">
-            <h2>Your seat reservations</h2>
+            <h2>Your seat reservations (<span data-bind="text: Seats().length"></span> )</h2>
 
             <table>
-                <thead>
+                <thead><tr>
+                    <th>Passenger name</th><th>Meal</th><th>Surcharge</th><th></th>
+                </tr></thead>
+                <tbody data-bind="foreach: Seats">
                     <tr>
-                        <th>Passenger name</th><th>Meal</th><th>Surcharge</th><th></th>
-                    </tr>
-                </thead>                
-                <tbody> </tbody>
+                        <td><input data-bind="value: Name" /></td>
+                        <td><select data-bind="options: $root.AvailableMeals, value: Meal, optionsText: 'MealName'"></select></td>
+                        <td data-bind="text: FormattedPrice"></td>
+                        <td><a href="#" data-bind="click: $root.RemoveSeat">Remove</a></td>
+                    </tr>    
+                </tbody>
             </table>
+
+            <button data-bind="click: AddSeat, enable: Seats().length < 5">Reserve another seat</button>
+
+            <h3 data-bind="visible: TotalSurcharge() > 0">
+                Total surcharge: <span data-bind="text: TotalSurcharge().toFixed(2)"></span>
+            </h3>
         </div>
       #>
     }

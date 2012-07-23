@@ -129,20 +129,33 @@ namespace Nemerle.WUI.Reactive
         def body = meth.Body;
         def oldEmitDebug = typer.Manager.Options.EmitDebug;
         typer.Manager.Options.EmitDebug = false;        
-        def methodTyper = Typer(type :> TypeBuilder, null, meth, meth.Env);        
+        def tb = type :> TypeBuilder;
+        def methodTyper = Typer(tb, tb.Tenv, meth, meth.Env);        
         methodTyper.RunFullTyping();
         typer.Manager.Options.EmitDebug = oldEmitDebug;
         #endregion
         
         def scriptBody = match(meth.Header.Body) { 
         | FunBody.Typed(typedBody) =>
-            assert2(false);
+            //assert2(false);
             mutable jsAst = JsASTBuilder.Build(typedBody, false);
             jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
             def jsAst' = JsASTOptimizer.Optimize(jsAst); 
             def jsAst'' = JsASTOptimizer.FlattenAndRemoveVoids(jsAst');
-            def jsAst''' = JsASTOptimizer.RemoveEmptyBranches(jsAst'');            
+            mutable jsAst''' = JsASTOptimizer.RemoveEmptyBranches(jsAst'');
+            
+            when(meth.Header.ReturnType != FixedType.Void())
+                jsAst''' = JsASTOptimizer.MakeReturn(jsAst''');
+                
             def code = JsASTWriter.Write(jsAst''');
+            
+            when(!tb.Manager.IsIntelliSenseMode && false) {
+                System.IO.File.WriteAllText("C:\\dev\\temp.txt", meth.Header.Body.ToString());
+                System.IO.File.AppendAllText("C:\\dev\\temp.txt", Environment.NewLine + Environment.NewLine);
+                System.IO.File.AppendAllText("C:\\dev\\temp.txt", code);
+               _ = System.Diagnostics.Process.Start("notepad.exe", "C:\\dev\\temp.txt");
+            }
+            
             code
         | _ => Message.Error("Couldn't type body"); "// Error generating javascript, method body wasn't typed correctly";
         }
@@ -152,7 +165,7 @@ namespace Nemerle.WUI.Reactive
         def code = if (isDependent)
 $<#
 this.$name = ko.computed(function() {
-    return $scriptBody;
+    $scriptBody;
 }, this);#>
           else
 $<#
@@ -166,7 +179,7 @@ this.$name = function() {
       {
         | meth is MethodBuilder when meth.Name.StartsWith("get_") || meth.Name.StartsWith("set_") => null //TODO: Add property IMethod.IsAccessor
         | meth is MethodBuilder when meth.IsConstructor => null
-        | meth is MethodBuilder when meth.ReturnType is FixedType.Void => convertMethod(member.DeclaringType, meth.Name, meth, false)
+        | meth is MethodBuilder => convertMethod(member.DeclaringType, meth.Name, meth, false)
         | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>          
           def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];          
           def isArray = arrayTypes.Any(t => prop.Getter.ReturnType.TryUnify(t));
@@ -180,6 +193,7 @@ this.$name = function() {
       } 
       //assert2(false);
       def createJsTypeBody(type: TypeInfo) {
+          //assert2(false);
           def members = type.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic);
           def exprs1 = members.RevMap(convertMember).RevFilter(_ != null);
           
@@ -219,11 +233,12 @@ this.$name = function() {
 function ToTypedObject(obj) {
     if(!!obj.$type) {
         var typename = obj.$type.replace(/.*\+(.+),.+/, "$1");
-        var typedObj = eval('new ' + typename + '()');        
+        var params = [];
         for(var p in obj)
-            if(obj.hasOwnProperty(p)) 
-                typedObj[p] = ToTypedObject(obj[p]);
-        return typedObj;
+            if(obj.hasOwnProperty(p)) {
+                params.push('ToTypedObject(obj.' + p + ')');
+            }
+        return eval('new ' + typename + '(' + params.slice(1).join() + ')');
     }               
     if(obj instanceof Array) {
         var newArr = [];
