@@ -19,6 +19,8 @@ namespace Nemerle.WUI.Reactive
         | Call(MethodRef(obj = o, meth = meth), parms, _) => ConvertMethod(o.Type.TypeInfo, builder(o), meth, parms.Map(p => builder(p.expr)))
         | Call(StaticRef(from = fromType, mem = meth) as left, parms, _) => ConvertMethod(fromType.TypeInfo, builder(left), meth, parms.Map(p => builder(p.expr)))
         | Call(OpCode as op, parms, _) => JsAST.Call(builder(op), parms.Map(p => builder(p.expr)))
+        | Call(Base, _, _) => JsAST.Void()
+        | Call(s, _, _) => Message.Warning("Unsupported call to $s"); builder(call) 
         }        
         result
       }
@@ -30,19 +32,18 @@ namespace Nemerle.WUI.Reactive
         | ("ToString", h :: _) => JsAST.Call(JsAST.MethodRef(h, "toString"), [])
         | ("ToString", [])  => JsAST.Call(JsAST.MethodRef(left, "toString"), [])
         | ("Concat", h :: t) when type.FullName == typeof(string).FullName => JsAST.Call(JsAST.MethodRef(h, "concat"), t)
-        | ("ToUpper", []) when type.FullName == typeof(string).FullName => JsAST.Call(JsAST.MethodRef(left, "toUpperCase"), [])
-        | ("op_Implicit", h :: []) => h
-        | ("op_Implicit", h :: t) => JsAST.Seq(h :: t)
-        | ("op_Addition", parms) => JsAST.Call(JsAST.OpCode("+"), parms)
+        | ("ToUpper", []) when type.FullName == typeof(string).FullName    => JsAST.Call(JsAST.MethodRef(left, "toUpperCase"), [])
+        | ("op_Implicit", h :: [])                                         => h
+        | ("op_Implicit", h :: t)                                          => JsAST.Seq(h :: t)
+        | ("op_Addition", parms)                                           => JsAST.Call(JsAST.OpCode("+"), parms)
+        //List
         | ("get_Item", h :: []) when type.SystemType.FullName == typeof(List[_]).FullName => JsAST.Call(JsAST.Indexer(left), [h])
-        | ("Add", h :: []) when type.SystemType.FullName == typeof(List[_]).FullName => 
-            def left = match(left) {
-            | Call(MethodRef(obj, m), []) => JsAST.ParameterRef(obj, m)
-            | _ => left
-            }
-            JsAST.Call(JsAST.MethodRef(left, "push"), [h])
+        | ("Add",      h :: []) when type.SystemType.FullName == typeof(List[_]).FullName => JsAST.Call(JsAST.MethodRef(PropertyToField(left), "push"), [h])
+        | ("Remove",   h :: []) when type.SystemType.FullName == typeof(List[_]).FullName => JsAST.Call(JsAST.MethodRef(PropertyToField(left), "remove"), [h])
         | (".ctor", parms) => JsAST.Call(JsAST.Constructor(type), parms)
-        | _ => JsAST.Call(JsAST.MethodRef(left, RemoveGetSet(member.Name)), parms)
+        | _ when member.Name.StartsWith("get_")             => JsAST.PropertyGet(left, RemoveGetSet(member.Name))
+        | (_, h :: []) when member.Name.StartsWith("set_")  => JsAST.PropertySet(left, RemoveGetSet(member.Name), h)            
+        | _                                                 => JsAST.Call(JsAST.MethodRef(left, RemoveGetSet(member.Name)), parms)
         }
       }
       
@@ -66,11 +67,18 @@ namespace Nemerle.WUI.Reactive
         }
       }
       
-      private RemoveGetSet(method : string) : string {
-        if(method.StartsWith("get_") || method.StartsWith("set_"))
-            method.Substring(4);
-        else
-            method;
+      private RemoveGetSet(methodName : string) : string {
+        if(IsGetSet(methodName)) methodName.Substring(4) else methodName
+      }
+      
+      private IsGetSet(methodName : string) : bool {
+          methodName.StartsWith("get_") || methodName.StartsWith("set_")
+      }
+      
+      private PropertyToField(prop : JsAST) : JsAST
+      {          
+      | PropertyGet(obj, name) => JsAST.FieldRef(obj, name)
+      | _ => prop
       }
   }
 }

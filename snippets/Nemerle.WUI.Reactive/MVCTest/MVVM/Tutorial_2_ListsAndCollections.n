@@ -12,7 +12,7 @@ using System.Xml.Linq;
 
 namespace MVCTest
 {
-  [Record, ViewModel]
+  [ViewModel]
   public class ListsAndCollectionsViewModel
   {
     [Record]
@@ -44,6 +44,11 @@ namespace MVCTest
             }
             total
         } 
+    }
+    
+    public this() 
+    {
+        
     }
     
     public AddSeat() : void 

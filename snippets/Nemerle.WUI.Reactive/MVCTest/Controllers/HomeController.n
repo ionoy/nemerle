@@ -24,7 +24,8 @@ namespace MVCTest.Controllers
             def seats = [ListsAndCollectionsViewModel.SeatReservation("Steve", meals.Head),
                          ListsAndCollectionsViewModel.SeatReservation("Roger", meals.Head)];
                          
-            View(Utils.MakePageHtml(ListsAndCollectionsViewModel(meals.ToList(), seats.ToList()), Views.ListsAndCollectionsView) : object);
+            //View(Utils.MakePageHtml(ListsAndCollectionsViewModel(meals.ToList(), seats.ToList()), Views.ListsAndCollectionsView) : object);
+            View(Utils.MakePageHtml(ListsAndCollectionsViewModel(), Views.ListsAndCollectionsView) : object);
         }
         
     }

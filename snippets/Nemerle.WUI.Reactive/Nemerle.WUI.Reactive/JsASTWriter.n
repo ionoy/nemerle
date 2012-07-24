@@ -62,7 +62,9 @@ $(Write(body, indent + "  "))
             $"$name : $(Write(ast))"
         }
             $<#{ ..$(fields; ", "; fieldToObjectField) }#>
-        | ParameterRef(obj, parm)                      => $"$(Write(obj)).$parm"
+        | FieldRef(obj, parm)                          => $"$(Write(obj)).$parm"
+        | PropertySet(obj, prop, val)                  => $"$(Write(obj)).$prop($(Write(val)))"
+        | PropertyGet(obj, prop)                       => $"$(Write(obj)).$prop()"
         | Return(expr)                                 => indent + $"return $(Write(expr))"
         | Seq(items)                                   => 
             def withoutVoids = items.Filter(i => !(i is JsAST.Void));

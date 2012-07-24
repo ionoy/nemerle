@@ -123,55 +123,21 @@ namespace Nemerle.WUI.Reactive
       }
       
       def convertMethod(type : TypeInfo, name : string, meth : MethodBuilder, isDependent = true)
-      {
-        #region Type method body
-        def typer = typer;
-        def body = meth.Body;
-        def oldEmitDebug = typer.Manager.Options.EmitDebug;
-        typer.Manager.Options.EmitDebug = false;        
-        def tb = type :> TypeBuilder;
-        def methodTyper = Typer(tb, tb.Tenv, meth, meth.Env);        
-        methodTyper.RunFullTyping();
-        typer.Manager.Options.EmitDebug = oldEmitDebug;
-        #endregion
-        
-        def scriptBody = match(meth.Header.Body) { 
-        | FunBody.Typed(typedBody) =>
-            //assert2(false);
-            mutable jsAst = JsASTBuilder.Build(typedBody, false);
-            jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
-            def jsAst' = JsASTOptimizer.Optimize(jsAst); 
-            def jsAst'' = JsASTOptimizer.FlattenAndRemoveVoids(jsAst');
-            mutable jsAst''' = JsASTOptimizer.RemoveEmptyBranches(jsAst'');
-            
-            when(meth.Header.ReturnType != FixedType.Void())
-                jsAst''' = JsASTOptimizer.MakeReturn(jsAst''');
-                
-            def code = JsASTWriter.Write(jsAst''');
-            
-            when(!tb.Manager.IsIntelliSenseMode && false) {
-                System.IO.File.WriteAllText("C:\\dev\\temp.txt", meth.Header.Body.ToString());
-                System.IO.File.AppendAllText("C:\\dev\\temp.txt", Environment.NewLine + Environment.NewLine);
-                System.IO.File.AppendAllText("C:\\dev\\temp.txt", code);
-               _ = System.Diagnostics.Process.Start("notepad.exe", "C:\\dev\\temp.txt");
-            }
-            
-            code
-        | _ => Message.Error("Couldn't type body"); "// Error generating javascript, method body wasn't typed correctly";
-        }
-      
-        meth.Body = body;
-                
+      {       
+        def scriptBody = TranslateMethodBody(typer, type, meth);                
         def code = if (isDependent)
 $<#
 this.$name = ko.computed(function() {
     $scriptBody;
 }, this);#>
-          else
+        else {
+            def parms = meth.GetParameters().Map(p => p.Name);
 $<#
-this.$name = function() {
+this.$name = function(..$parms) {
     $scriptBody;
 };#>;
+        }
+        
         code
       }
             
@@ -183,12 +149,10 @@ this.$name = function() {
         | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>          
           def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];          
           def isArray = arrayTypes.Any(t => prop.Getter.ReturnType.TryUnify(t));
-          def ctor = if (isArray) "observableArray" else "observable";
-          def prefix = $<#this.$(prop.Name) = ko.$ctor(#>;                    
-          def paramName = char.ToLower(prop.Name[0]) + prop.Name.Substring(1);
-          prefix + paramName + ");"
-        | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => convertMethod(member.DeclaringType, prop.Name, prop.GetGetter() :> MethodBuilder)        
-        | meth is MethodBuilder when meth.Header.ParametersDeclarations.Length == 0 => convertMethod(member.DeclaringType, meth.Name, meth)          
+          def ctor = if (isArray) "observableArray([])" else "observable()";
+          $<#this.$(prop.Name) = ko.$ctor#>;
+          //def paramName = char.ToLower(prop.Name[0]) + prop.Name.Substring(1);
+        | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => convertMethod(member.DeclaringType, prop.Name, prop.GetGetter() :> MethodBuilder)
         | _ =>  null          
       } 
       //assert2(false);
@@ -197,20 +161,35 @@ this.$name = function() {
           def members = type.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic);
           def exprs1 = members.RevMap(convertMember).RevFilter(_ != null);
           
-          def constructors = type.GetConstructors(BF.Public | BF.Instance);
-      
-          when(constructors.Length > 1)
-              Message.Error("Multiple constructors are not supported");          
-      
-          def constructor = constructors.FirstOrDefault() :> MethodBuilder;                    
-          def constructorParams = if(constructor != null) constructor.GetParameters().Map(p => p.Name) else [];                  
-          def header = $<# function $(type.Name)(..$(constructorParams)) { #>;
+          def constructor = GetTypeConstructor(type);
+          def constructorParams = if(constructor != null) constructor.GetParameters().Map(p => p.Name) else [];                          
+          def constructorBody = TranslateMethodBody(typer, type, constructor :> MethodBuilder);
+          
+          def ctor = constructor :> MethodBuilder;
+          def addParams(parms, expr) : PExpr {
+              match(parms) {
+              | head :: tail => 
+                def newExpr = <[ $expr; __constructorParams.Add($(head : dyn)); ]>;
+                addParams(tail, newExpr);                
+              | [] => expr
+              }              
+          }          
+          
+          def assignments = addParams(constructorParams, ctor.Body);
+          ctor.Body = <[ $assignments ]>;          
+          
+          def tb = type :> TypeBuilder;
+          tb.Define(<[ decl: __constructorParams : List[object] = List.[object]() ]>);
+          tb.Compile();
+          
+          def header = $<# function $(type.Name)(..$(constructorParams)) { #>;          
           def body = $<# ..$(exprs1; "\n") #>;
           def footer = <# }; #>;
           
           $<#
             $header
             $body
+            $constructorBody
             $footer
           #>
       }
@@ -218,16 +197,7 @@ this.$name = function() {
       //assert2(false);
       def vmTypeBody  = createJsTypeBody(tb);
       def otherTypeBodies = tb.GetNestedTypes(BF.Public|BF.NonPublic|BF.Instance).Map(t => <[ sb.AppendLine($(createJsTypeBody(t))) ]>);
-  
-      def properties = tb.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic)
-                         .OfType.[PropertyBuilder]()
-                         .Where(prop => prop.AutoPropertyField.IsSome);
-      def initialParams = properties.Map(p => p.Name);
-      def initialParamInits = properties.Map(p => <[
-         $("var " + p.Name + " = ToTypedObject(" : string) 
-         + Nemerle.WUI.Reactive.Utils.ToJson(this.$(p.Ast.name)) 
-         + $(");" : string);
-      ]>).Map(i => <[ _ = sb.AppendLine($i) ]>);
+        
       def toTypedObjectFunction = 
 <#
 function ToTypedObject(obj) {
@@ -250,7 +220,7 @@ function ToTypedObject(obj) {
 #>;
       def applyBindings = 
 $<#    
-    ko.applyBindings(new $(tb.Name)(..$(initialParams)));
+    ko.applyBindings(new $(tb.Name)({0}));
 #>;
       _ = tb.DefineWithSource(<[ decl:
         public GetViewModelScript() : string
@@ -258,9 +228,9 @@ $<#
           def sb = System.Text.StringBuilder();
           _ = sb.AppendLine($toTypedObjectFunction);
           { ..$otherTypeBodies }
-          _ = sb.AppendLine($vmTypeBody);
-          { ..$initialParamInits }
-          _ = sb.AppendLine($applyBindings);
+          _ = sb.AppendLine($vmTypeBody);          
+          def paramList = __constructorParams.Map(obj => "ToTypedObject(" + Utils.ToJson(obj) + ")");          
+          _ = sb.AppendLine(string.Format($applyBindings, $"..$(paramList)"));
           sb.ToString()
         }
         ]>);
@@ -349,5 +319,56 @@ $<#
       }
       finally { typer.Manager.MacroColors.PopColor(); }
     }
+    
+    public TranslateMethodBody(typer : Typer, type : TypeInfo, meth : MethodBuilder) : string
+    {
+        #region Type method body
+        def typer = typer;
+        def body = meth.Body;
+        def oldEmitDebug = typer.Manager.Options.EmitDebug;
+        typer.Manager.Options.EmitDebug = false;        
+        def tb = type :> TypeBuilder;        
+        def methodTyper = Typer(tb, tb.Tenv, meth, meth.Env);        
+        methodTyper.RunFullTyping();
+        typer.Manager.Options.EmitDebug = oldEmitDebug;
+        #endregion
+        
+        def translation = match(meth.Header.Body) { 
+        | FunBody.Typed(typedBody) =>
+            //assert2(false);
+            mutable jsAst = JsASTBuilder.Build(typedBody, false);
+            jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
+            def jsAst' = JsASTOptimizer.Optimize(jsAst); 
+            def jsAst'' = JsASTOptimizer.FlattenAndRemoveVoids(jsAst');
+            mutable jsAst''' = JsASTOptimizer.RemoveEmptyBranches(jsAst'');
+            
+            when(meth.Header.ReturnType != FixedType.Void() && !meth.IsConstructor)
+                jsAst''' = JsASTOptimizer.MakeReturn(jsAst''');
+                
+            def code = JsASTWriter.Write(jsAst''');
+            
+            when(!tb.Manager.IsIntelliSenseMode && false) {
+                System.IO.File.WriteAllText("C:\\dev\\temp.txt", meth.Header.Body.ToString());
+                System.IO.File.AppendAllText("C:\\dev\\temp.txt", Environment.NewLine + Environment.NewLine);
+                System.IO.File.AppendAllText("C:\\dev\\temp.txt", code);
+               _ = System.Diagnostics.Process.Start("notepad.exe", "C:\\dev\\temp.txt");
+            }
+            
+            code
+        | _ => Message.Error("Couldn't type body"); "// Error generating javascript, method body wasn't typed correctly";
+        }
+        
+        meth.Body = body;
+        
+        translation
+    }
+    
+    private GetTypeConstructor(type : TypeInfo) : IMethod
+    {
+        def constructors = type.GetConstructors(BF.Public | BF.Instance);
+        when(constructors.Length > 1)
+              Message.Error(type.Location, "Multiple constructors are not supported");  
+        constructors.FirstOrDefault()
+    }    
   }
 }
