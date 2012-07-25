@@ -150,7 +150,7 @@ this.$name = function(..$parms) {
           def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];          
           def isArray = arrayTypes.Any(t => prop.Getter.ReturnType.TryUnify(t));
           def ctor = if (isArray) "observableArray([])" else "observable()";
-          $<#this.$(prop.Name) = ko.$ctor#>;
+          $<#this.$(prop.Name) = ko.$ctor;#>;
           //def paramName = char.ToLower(prop.Name[0]) + prop.Name.Substring(1);
         | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => convertMethod(member.DeclaringType, prop.Name, prop.GetGetter() :> MethodBuilder)
         | _ =>  null          
@@ -335,7 +335,7 @@ $<#
         
         def translation = match(meth.Header.Body) { 
         | FunBody.Typed(typedBody) =>
-            assert2(false);
+            //assert2(false);
             mutable jsAst = JsASTBuilder.Build(typedBody, false);
             jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
             def jsAst' = JsASTOptimizer.Optimize(jsAst); 
