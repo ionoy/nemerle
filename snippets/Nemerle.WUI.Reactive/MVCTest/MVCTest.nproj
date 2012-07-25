@@ -148,6 +148,9 @@
     <Compile Include="MVVM\Tutorial_2_ListsAndCollections.n">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="MVVM\Tutorial_3_SinglePageApps.n">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.n" />
   </ItemGroup>
   <ItemGroup>
@@ -293,6 +296,9 @@
       <SubType>Content</SubType>
     </Content>
     <Content Include="Scripts\modernizr-2.0.6-development-only.js">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Scripts\sammy.js">
       <SubType>Content</SubType>
     </Content>
     <Content Include="Views\Home\Tutorial.cshtml">

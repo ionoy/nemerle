@@ -68,7 +68,7 @@ namespace Nemerle.WUI.Reactive
                 }
             | LocalFunRef                       => Message.Warning(expr.Location, "LocalFunRef not implemented"); JsAST.NotImpl()
             | LocalRef(decl)                    => JsAST.LocalRef(decl.Name)
-            | MacroEnvelope(expanded = ex, original = org) => 
+            | MacroEnvelope(expanded = ex, original = org, the_macro = macr) => 
                 match(org) { 
                 | <[ foreach($it in $coll) $body  ]> => 
                     def it = it.ToString();
@@ -79,6 +79,7 @@ namespace Nemerle.WUI.Reactive
                     }
                     
                     JsAST.For(it, coll, body);                    
+                | MacroCall(Name(Id = "js"), _, p :: []) => JsAST.Code(p.ToString());
                 | _ => Build(ex)
                 }                
             | Match(expr, cases)                => Message.Warning(expr.Location, "Match not implemented"); JsAST.NotImpl()
