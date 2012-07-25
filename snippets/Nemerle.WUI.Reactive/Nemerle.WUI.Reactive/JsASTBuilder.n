@@ -79,7 +79,11 @@ namespace Nemerle.WUI.Reactive
                     }
                     
                     JsAST.For(it, coll, body);                    
-                | MacroCall(Name(Id = "js"), _, p :: []) => JsAST.Code(p.ToString());
+                | MacroCall(Name(Id = "js"), _, p :: []) => 
+                    match(p) {
+                    | SyntaxElement.Expression(Literal(Literal.String(val))) => JsAST.Code(val)
+                    | _ => JsAST.Code(p.ToString().Trim('\"'));
+                    }                    
                 | _ => Build(ex)
                 }                
             | Match(expr, cases)                => Message.Warning(expr.Location, "Match not implemented"); JsAST.NotImpl()

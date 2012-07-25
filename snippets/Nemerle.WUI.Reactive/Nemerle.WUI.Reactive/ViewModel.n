@@ -196,7 +196,9 @@ this.$name = function(..$parms) {
       
       //assert2(false);
       def vmTypeBody  = createJsTypeBody(tb);
-      def otherTypeBodies = tb.GetNestedTypes(BF.Public|BF.NonPublic|BF.Instance).Map(t => <[ sb.AppendLine($(createJsTypeBody(t))) ]>);
+      def otherTypeBodies = tb.GetNestedTypes(BF.Public|BF.NonPublic|BF.Instance)
+                              .Filter(t => t.Name != "Server")
+                              .Map(t => <[ sb.AppendLine($(createJsTypeBody(t))) ]>);                              
         
       def toTypedObjectFunction = 
 <#
@@ -277,8 +279,7 @@ $<#
         typer.Manager.Options.EmitDebug = oldEmitDebug;
         
         match(method.Header.Body) { 
-        | FunBody.Typed(typedBody) =>
-            assert2(false);
+        | FunBody.Typed(typedBody) =>            
             mutable jsAst = JsASTBuilder.Build(typedBody, false);
             jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
             jsAst = JsASTOptimizer.Optimize(jsAst);            
@@ -336,13 +337,12 @@ $<#
         
         def translation = match(meth.Header.Body) { 
         | FunBody.Typed(typedBody) =>
-            assert2(false);
+            //assert2(false);
             mutable jsAst = JsASTBuilder.Build(typedBody, false);
             jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
             def jsAst' = JsASTOptimizer.Optimize(jsAst); 
             def jsAst'' = JsASTOptimizer.FlattenAndRemoveVoids(jsAst');
-            mutable jsAst''' = JsASTOptimizer.RemoveEmptyBranches(jsAst'');
-            
+            mutable jsAst''' = JsASTOptimizer.RemoveEmptyBranches(jsAst'');           
             when(!(meth.Header.ReturnType is FixedType.Void()) && !meth.IsConstructor)
                 jsAst''' = JsASTOptimizer.MakeReturn(jsAst''');
                 

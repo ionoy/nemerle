@@ -1,6 +1,7 @@
 ﻿using Nemerle.Collections;
 using Nemerle.Text;
 using Nemerle.Utility;
+using Nemerle.Extensions;
 
 using System;
 using System.Collections.Generic;
@@ -15,18 +16,77 @@ namespace MVCTest
     [ViewModel]
     public class SPAViewModel
     {
+        [Record]
+        public class Mail
+        {   
+            public Id : int { get; set; }
+            public From : string { get; set; }
+            public To : string { get; set; }
+            public Date : string { get; set; }
+            public Subject : string { get; set; }
+            public MessageContent : string { get; set; }
+            public Folder : string { get; set; }
+        }
+        
+        [Record]
+        public class FolderData
+        {
+            public Id : string { get; set; }
+            public Mails : IEnumerable[Mail] { get; set; }
+        }
+        
         public Folders : List[string] { get; set; }
         public ChosenFolderId : int { get; set; }
         public ChosenFolderData : int { get; set; }
         public ChosenMailData : int { get; set; }
         
-        /*public this() 
+        public this() 
         {
             Folders = ["Inbox", "Archive", "Sent", "Spam"].ToList();
-        }*/
+            js self = this;
+            js <#
+                Sammy(function() {
+                    this.get("#:folder", function() {
+                        self.ChosenFolderId(this.params.folder);
+                        self.ChosenMailData(null);
+                        $.get("/SPAViewModel/Folder", { folder: this.params.foder }, self.ChosenFolderData);
+                    });
+                    
+                    this.get("#:folder/:mailId", function() {
+                        self.ChosenFolderId(this.params.folder);
+                        self.ChosenMailData(null);
+                        $.get("/SPAViewModel/Mail", { mailId: this.params.mailId }, self.ChosenMailData);
+                    });
+                }).run();
+            #>;
+        }
         
         public GoToFolder(folder : int) : void {
             js location.hash = folder;
+        }
+        
+        public GoToMail(mail : Mail) : void {
+            js location.hash = mail.Folder + '/' + mail.Id;
+        }
+        
+        public class Server
+        {
+            public Folder(folder : string) : FolderData
+            {
+                FolderData(folder, [
+                            Mail(1, "Abbot \u003coliver@smoke-stage.xyz\u003e", "steve@example.com", "May 25, 2011", "Booking confirmation #389629244", "", "Inbox"),
+                            Mail(2, "Addison Begoat \u003cupton.oprdrusson@pear-income.xyz\u003e", "steve@example.com", "May 7, 2011", "FW: Associate advice", "", "Inbox"),
+                            Mail(3, "Allistair \u003cleroy72@plane-railway.xyz\u003e", "steve@example.com", "May 19, 2011", "RE: Phone call tomorrow 5 o\u0027clock", "", "Inbox")
+                          ]);
+            }
+            
+            public Mail(mailId : int) : Mail
+            {
+                def allMails = [Mail(1, "Abbot \u003coliver@smoke-stage.xyz\u003e", "steve@example.com", "May 25, 2011", "Booking confirmation #389629244", "This is an email from Abbot. Mailed on May 25, 2011. Data is sent from server", "Inbox"),
+                                Mail(2, "Addison Begoat \u003cupton.oprdrusson@pear-income.xyz\u003e", "steve@example.com", "May 7, 2011", "FW: Associate advice", "This is an email from Addison Begoat. Mailed on May 7, 2011. Data is sent from server", "Inbox"),
+                                Mail(3, "Allistair \u003cleroy72@plane-railway.xyz\u003e", "steve@example.com", "May 19, 2011", "RE: Phone call tomorrow 5 o\u0027clock", "This is an email from Allistair. Mailed on May 19, 2011. Data is sent from server", "Inbox")];
+                allMails.FirstOrDefault(m => m.Id == mailId);
+            }
         }
     }
 
@@ -38,32 +98,32 @@ namespace MVCTest
             _ = viewModel;
             xml <# 
             <div xmlns="">
-                <ul class="folders" data-bind="foreach: folders">
+                <ul class="folders" data-bind="foreach: Folders">
                     <li data-bind="text: $data, 
-                                    css: { selected: $data == $root.chosenFolderId() },
-                                    click: $root.goToFolder"></li>
+                                    css: { selected: $data == $root.ChosenFolderId() },
+                                    click: $root.GoToFolder"> </li>
                 </ul>
 
-                <table class="mails" data-bind="with: chosenFolderData">
+                <table class="mails" data-bind="with: ChosenFolderData">
                     <thead><tr><th>From</th><th>To</th><th>Subject</th><th>Date</th></tr></thead>
-                    <tbody data-bind="foreach: mails">
-                        <tr data-bind="click: $root.goToMail">
-                            <td data-bind="text: from"> </td>
-                            <td data-bind="text: to"> </td>
-                            <td data-bind="text: subject"> </td>
-                            <td data-bind="text: date"> </td>
+                    <tbody data-bind="foreach: Mails">
+                        <tr data-bind="click: $root.GoToMail">
+                            <td data-bind="text: From"> </td>
+                            <td data-bind="text: To"> </td>
+                            <td data-bind="text: Subject"> </td>
+                            <td data-bind="text: Date"> </td>
                         </tr>     
                     </tbody>
                 </table>
 
-                <div class="viewMail" data-bind="with: chosenMailData">
+                <div class="viewMail" data-bind="with: ChosenMailData">
                     <div class="mailInfo">
-                        <h1 data-bind="text: subject"></h1>
-                        <p><label>From</label>: <span data-bind="text: from"> </span></p>
-                        <p><label>To</label>: <span data-bind="text: to"> </span></p>
-                        <p><label>Date</label>: <span data-bind="text: date"> </span></p>
+                        <h1 data-bind="text: Subject"> </h1>
+                        <p><label>From</label>: <span data-bind="text: From"> </span></p>
+                        <p><label>To</label>: <span data-bind="text: To"> </span></p>
+                        <p><label>Date</label>: <span data-bind="text: Date"> </span></p>
                     </div>
-                    <p class="message" data-bind="html: messageContent" />
+                    <p class="message" data-bind="html: MessageContent"> </p>
                 </div>
             </div>
             #>
