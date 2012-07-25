@@ -96,7 +96,7 @@ namespace Nemerle.WUI.Reactive
             | Sequence(e1, e2)                  => JsAST.Seq([Build(e1), Build(e2)])
             | StaticEventRef                    => Message.Warning(expr.Location, "StaticEventRef not implemented"); JsAST.NotImpl()
             | StaticPropertyRef                 => Message.Warning(expr.Location, "StaticPropertyRef not implemented"); JsAST.NotImpl()
-            | StaticRef(from, mem, _)           => Message.Warning(expr.Location, "StaticRef not implemented"); JsAST.NotImpl()
+            | StaticRef(from, mem, _)           => JsAST.NotImpl()
             | Switch                            => Message.Warning(expr.Location, "Switch not implemented"); JsAST.NotImpl()
             | This                              => JsAST.This()
             | Throw                             => Message.Warning(expr.Location, "Throw not implemented"); JsAST.NotImpl()

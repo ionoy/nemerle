@@ -335,7 +335,7 @@ $<#
         
         def translation = match(meth.Header.Body) { 
         | FunBody.Typed(typedBody) =>
-            //assert2(false);
+            assert2(false);
             mutable jsAst = JsASTBuilder.Build(typedBody, false);
             jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
             def jsAst' = JsASTOptimizer.Optimize(jsAst); 

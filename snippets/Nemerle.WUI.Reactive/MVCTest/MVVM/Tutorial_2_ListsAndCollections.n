@@ -20,10 +20,10 @@ namespace MVCTest
     {
         public Name : string { get; set; }
         public Meal : Meal { get; set; }        
-        public FormattedPrice : string 
+        /*public FormattedPrice : string 
         { 
             get { if(Meal != null) Meal.Price.ToString() else "None" } 
-        }
+        }*/
     }
     
     [Record]
@@ -35,7 +35,7 @@ namespace MVCTest
     
     public AvailableMeals : List[Meal] { get; set; }
     public Seats          : List[SeatReservation] { get; set; }
-    public TotalSurcharge : decimal 
+    /*public TotalSurcharge : decimal 
     { 
         get { 
             mutable total = 0m;
@@ -44,14 +44,16 @@ namespace MVCTest
             }
             total
         } 
-    }
+    }*/
     
     public this() 
     {
-        
+        AvailableMeals = [Meal("Potatoes", 1), Meal("Tomatoes", 2)].ToList();
+        Seats = [SeatReservation("Steve", AvailableMeals[0]), 
+                 SeatReservation("Roger", AvailableMeals[1])].ToList();
     }
     
-    public AddSeat() : void 
+    /*public AddSeat() : void 
     {
         Seats.Add(SeatReservation("", AvailableMeals[0]))
     }
@@ -59,7 +61,7 @@ namespace MVCTest
     public RemoveSeat(seat : SeatReservation) : bool 
     {        
         Seats.Remove(seat)
-    }
+    }*/
   }
 
   public partial module Views
