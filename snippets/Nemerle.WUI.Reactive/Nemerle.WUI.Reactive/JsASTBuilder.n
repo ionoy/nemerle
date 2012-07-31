@@ -14,36 +14,39 @@ namespace Nemerle.WUI.Reactive
 {
   public module JsASTBuilder
   {
-      public Build(expr : TExpr, debug : bool = false) : JsAST
+      public Build(expr : TExpr, lambdas : Dictionary[string, JsAST.Lambda]) : JsAST
       {          
-        when(debug) 
-            assert2(false);
-            
-        match(TryToConvertKnownTemplates(expr)) {
+        def Build = Build(_, lambdas);
+        match(TryToConvertKnownTemplates(expr, lambdas)) {
         | Some(jsast) => jsast
         | _ =>
           match(expr) {
-            | Array(args, dims)                 => Message.Warning(expr.Location, "Array not implemented"); JsAST.NotImpl()
+            | Array                             => Message.Warning(expr.Location, "Array not implemented"); JsAST.NotImpl()
             | ArrayIndexer                      => Message.Warning(expr.Location, "ArrayIndexer not implemented"); JsAST.NotImpl()
             | Assign(s, t)                      => JsAST.Assign(Build(s), Build(t))
             | Base                              => Message.Warning(expr.Location, "Base not implemented"); JsAST.NotImpl()
             | Block(body = body)                => Build(body) 
             | Cache                             => Message.Warning(expr.Location, "Cache not implemented"); JsAST.NotImpl()
             | CacheRef                          => Message.Warning(expr.Location, "CacheRef not implemented"); JsAST.NotImpl()
-            | Call as call                      => JsKnownMembers.Convert(call, Build(_, false))
+            | Call as call                      => JsKnownMembers.Convert(call, Build)
             | ClosureFieldOf                    => Message.Warning(expr.Location, "ClosureFieldOf not implemented"); JsAST.NotImpl()
             | ClosureObjectOf                   => Message.Warning(expr.Location, "ClosureObjectOf not implemented"); JsAST.NotImpl()
             | ConstantObjectRef                 => Message.Warning(expr.Location, "ConstantObjectRef not implemented"); JsAST.NotImpl() 
             | CtorOf                            => Message.Warning(expr.Location, "CtorOf not implemented"); JsAST.NotImpl()
-            | DebugInfo                         => Message.Warning(expr.Location, "DebugInfo not implemented"); JsAST.NotImpl()
+            | DebugInfo(expr = expr)            => Build(expr)
             | Def                               => Message.Warning(expr.Location, "Def not implemented"); JsAST.NotImpl()
             | DefaultValue                      => JsAST.Void()
             | DefFunctionsIn                    => Message.Warning(expr.Location, "DefFunctionsIn not implemented"); JsAST.NotImpl()
-            | DefValIn(name, val, body)         => JsAST.Seq([JsAST.DefValue(name.Name, Build(val)), Build(body)])
+            | DefValIn(name, val, body)         => 
+                match(val) {
+                | StaticRef(from = from) when lambdas.ContainsKey(from.TypeInfo.Name) => 
+                       JsAST.Seq([JsAST.DefValue(name.Name, lambdas[from.TypeInfo.Name]), Build(body)])                        
+                | _ => JsAST.Seq([JsAST.DefValue(name.Name, Build(val)), Build(body)])
+                }
             | Delayed                           => Message.Warning(expr.Location, "Delayed not implemented"); JsAST.NotImpl()
             | Error                             => Message.Warning(expr.Location, "Error not implemented"); JsAST.NotImpl()
             | EventMember                       => Message.Warning(expr.Location, "EventMember not implemented"); JsAST.NotImpl()
-            | FieldMember                       => Message.Warning(expr.Location, "FieldMember not implemented"); JsAST.NotImpl()
+            | FieldMember(obj, fld)             => JsAST.FieldRef(Build(obj), fld.Name) 
             | FieldOf                           => Message.Warning(expr.Location, "FieldOf not implemented"); JsAST.NotImpl()
             | Goto(target, _)                   => JsAST.Goto(target)
             | HasType                           => Message.Warning(expr.Location, "HasType not implemented"); JsAST.NotImpl()
@@ -189,23 +192,25 @@ namespace Nemerle.WUI.Reactive
             JsAST.NotImpl();
       }
       
-      TryToConvertKnownTemplates(expr : TExpr) : option[JsAST]
+      TryToConvertKnownTemplates(expr : TExpr, lambdas : Dictionary[string, JsAST.Lambda]) : option[JsAST]
       { 
-      | DefValIn(LocalValue as lv, Call(func = MethodRef(meth = getenum, obj = collection)), body) when lv.Name == "enumerator" && getenum.Name == "GetEnumerator" => 
-        match(body) {
-        | TryFinally(Sequence(Literal, Label(body = MacroEnvelope(expanded = ifexpr))), Call(func = MethodRef(meth = disp))) when disp.Name == "Dispose" => 
-            match(ifexpr) { 
-            | If(cond = Call(OpCode("=="), Parm(expr = TypeConversion(expr = Call(func = MethodRef(meth = movnxt)))) :: Parm(expr = TypeConversion(expr = Literal(Literal.Bool(true)))) :: [], _), e_then = ifbody) when movnxt.Name == "MoveNext" => 
-                match(ifbody) {
-                | Label(_, TypeConversion(expr = Sequence(DefValIn(body = DefValIn(body = Sequence(_, foreachbody)), name = iterName), _))) => 
-                    Some(JsAST.For(iterName.Name, Build(collection), Build(foreachbody))) 
+          match(expr) {
+          | DefValIn(LocalValue as lv, Call(func = MethodRef(meth = getenum, obj = collection)), body) when lv.Name == "enumerator" && getenum.Name == "GetEnumerator" => 
+            match(body) {
+            | TryFinally(Sequence(Literal, Label(body = MacroEnvelope(expanded = ifexpr))), Call(func = MethodRef(meth = disp))) when disp.Name == "Dispose" => 
+                match(ifexpr) { 
+                | If(cond = Call(OpCode("=="), Parm(expr = TypeConversion(expr = Call(func = MethodRef(meth = movnxt)))) :: Parm(expr = TypeConversion(expr = Literal(Literal.Bool(true)))) :: [], _), e_then = ifbody) when movnxt.Name == "MoveNext" => 
+                    match(ifbody) {
+                    | Label(_, TypeConversion(expr = Sequence(DefValIn(body = DefValIn(body = Sequence(_, foreachbody)), name = iterName), _))) => 
+                        Some(JsAST.For(iterName.Name, Build(collection, lambdas), Build(foreachbody, lambdas))) 
+                    | _ => None()
+                    }            
                 | _ => None()
-                }            
-            | _ => None()
+                }
+            | _ => None() 
             }
-        | _ => None() 
-        }
-      | _ => None()
+          | _ => None()
+          }
       }
       
       ConvertPattern(p : Pattern) : JsAST

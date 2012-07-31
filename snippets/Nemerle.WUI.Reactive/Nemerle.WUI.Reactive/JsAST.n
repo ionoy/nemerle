@@ -25,9 +25,10 @@ namespace Nemerle.WUI.Reactive
         | For            { ItName : string; Collection : JsAST; Body : JsAST }
         | Goto           { LabelId : int }
         | If             { Cond : JsAST; Body : JsAST; ElseBody : JsAST }
-        | Indexer        { Obj : JsAST }
-        | JustIf         { Cond : JsAST; Body : JsAST }        
+        | Indexer        { Obj : JsAST }        
+        | JustIf         { Cond : JsAST; Body : JsAST }                
         | Label          { Id : int; Body : JsAST }
+        | Lambda         { Name : string; Parameters : list[string]; body : JsAST }
         | Literal        { Value : JsLiteral }
         | LocalRef       { Name : string }
         | MethodRef      { Obj : JsAST; Method : string }
@@ -41,6 +42,7 @@ namespace Nemerle.WUI.Reactive
         | Seq            { Items : list[JsAST] }
         | Switch         { Expr : JsAST; Cases : list[JsAST.SwitchCase] }
         | SwitchCase     { Id : int; Body : JsAST }
+        | ServerCall     { MethodName : string; TypeName : string; Parameters : list[string * JsAST]; Callback : JsAST }        
         | Ternary        { Cond : JsAST; Body : JsAST; ElseBody : JsAST }        
         | This
         | Try            { Body : JsAST; Handler : JsAST }
@@ -77,6 +79,7 @@ namespace Nemerle.WUI.Reactive
             | If(cond, then, els)         => JsAST.If(recurse(cond), recurse(then), recurse(els))
             | JustIf(cond, then)          => JsAST.JustIf(recurse(cond), recurse(then))
             | Label(id, body)             => JsAST.Label(id, recurse(body))
+            | Lambda(name, parms, body)   => JsAST.Lambda(name, parms, recurse(body))
             | Literal                     => ast'
             | LocalRef                    => ast'
             | MethodRef(obj, meth)        => JsAST.MethodRef(recurse(obj), meth)
@@ -86,6 +89,7 @@ namespace Nemerle.WUI.Reactive
             | PropertyGet(obj, prop)      => JsAST.PropertyGet(recurse(obj), prop)
             | Return(expr)                => JsAST.Return(recurse(expr))
             | Seq(items)                  => JsAST.Seq(items.Map(recurse))
+            | ServerCall(meth, ty, parms, callback) => JsAST.ServerCall(meth, ty, parms.Map(p => (p[0], recurse(p[1]))), recurse(callback))
             | Switch(expr, cases)         => JsAST.Switch(recurse(expr), cases.Map(recurse).Cast.[JsAST.SwitchCase]().NToList())
             | Ternary(cond, then, els)    => JsAST.Ternary(recurse(cond), recurse(then), recurse(els))
             | This                        => ast'

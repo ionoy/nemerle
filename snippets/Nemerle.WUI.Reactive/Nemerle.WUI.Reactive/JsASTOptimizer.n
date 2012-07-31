@@ -13,12 +13,12 @@ namespace Nemerle.WUI.Reactive
   { 
     allowedForAssignment : list[Type] = [typeof(JsAST.Call), typeof(JsAST.MethodRef), typeof(JsAST.LocalRef), 
                                          typeof(JsAST.Literal), typeof(JsAST.Code), typeof(JsAST.Void), 
-                                         typeof(JsAST.Ternary), typeof(JsAST.NotImpl)];
+                                         typeof(JsAST.Ternary), typeof(JsAST.NotImpl), typeof(JsAST.Lambda),
+                                         typeof(JsAST.Array)];
     allowedCallTargets : list[Type] = [typeof(JsAST.LocalRef), typeof(JsAST.Literal)];
     
     public Optimize(ast : JsAST) : JsAST
-    {  
-        
+    {          
         mutable counter = 0;        
         JsAST.Recurse(ast, a : JsAST => {
         counter++;
@@ -138,6 +138,7 @@ namespace Nemerle.WUI.Reactive
         | TryFinally(b, h) => JsAST.TryFinally(delayAssignment(b), delayAssignment(h))
         | Assign(l, r)     => JsAST.Assign(l, delayAssignment(r))
         | If(c, t, e)      => JsAST.If(c, delayAssignment(t), delayAssignment(e))
+        | ServerCall(m, t, ps, c) => JsAST.ServerCall(m, t, ps.Map(p => (p[0], delayAssignment(p[1]))), delayAssignment(c))
         | Switch(e, cases) => JsAST.Switch(e, cases.Map(c => JsAST.SwitchCase(c.Id, delayAssignment(c.Body))))
         | WhileNamed(c, b, n) => 
             def newBody = match(b) {
@@ -153,7 +154,7 @@ namespace Nemerle.WUI.Reactive
         | e when allowedForAssignment.Any(al => al == e.GetType()) => JsAST.Assign(left, e)
         | Undefined
         | Void => JsAST.Void()
-        | NotImpl => expr
+        | _ => expr
         }
     }
     

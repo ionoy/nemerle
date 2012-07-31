@@ -29,39 +29,40 @@ namespace Nemerle.WUI.Reactive
         | DefValue(name, val)                          => indent + $"var $name = $(Write(val))"
         | If(cond, then, els)                          => 
 $<# 
-$indent if($(Write(cond))) { 
-$indent $(Write(then, indent + "  "))
-$indent } else {
-$indent $(Write(els, indent + "  "))
-$indent }#>
+$(indent)if($(Write(cond))) { 
+$(indent)$(Write(then, indent + "  "))
+$(indent)} else {
+$(indent)$(Write(els, indent + "  "))
+$(indent)}#>
         | JustIf(cond, then)                           =>
 $<# 
-$indent if($(Write(cond))) { 
-$indent $(Write(then, indent + 1))
-$indent }#>
+$(indent)if($(Write(cond))) { 
+$(indent)$(Write(then, indent + 1))
+$(indent)}#>
         
         | For(iter, coll, body)                        => 
 $<#
-$indent for(var $iter in $(Write(coll))) {
-$indent   var $iter = $(Write(coll))[$iter];
+$(indent)for(var $iter in $(Write(coll))) {
+$(indent)  var $iter = $(Write(coll))[$iter];
 $(Write(body, indent + " "))
-$indent }#>    
-        | Label(id, body)                              =>
-$<#
-$(Write(body, indent + "  "))
-#>
-        | Literal(Null)                                =>  "null"
+$(indent)}#>    
+        | Lambda(_name, parms, body)                   =>
+$<#$(indent)function(..$parms) {
+$(indent)  $(Write(body))
+$(indent)}#>
+        | Label(_id, body)                             => $<#$(Write(body, indent + "  "))#>
+        | Literal(Null)                                => "null"
         | Literal(Integer(val))                        => $"$val"
         | Literal(Float(val))                          => $"$val"
         | Literal(String(val))                         => $<#"$val"#>
-        | Literal(Bool(val))                           => $"$val"
+        | Literal(Bool(val))                           => $"$(val.ToString().ToLower())"
         | LocalRef(name)                               => $"$name"
         | MethodRef(obj, meth)                         => $"$(Write(obj)).$meth"        
         | OpCode(name)                                 => $"$name"        
         | Object(fields)                               => 
-                    def fieldToObjectField((name, ast)) {
-            $"$name : $(Write(ast))"
-        }
+            def fieldToObjectField((name, ast)) {
+                $"$name : $(Write(ast))"
+            }
             $<#{ ..$(fields; ", "; fieldToObjectField) }#>
         | FieldRef(obj, parm)                          => $"$(Write(obj)).$parm"
         | PropertySet(obj, prop, val)                  => $"$(Write(obj)).$prop($(Write(val)))"
@@ -69,52 +70,49 @@ $(Write(body, indent + "  "))
         | Return(expr)                                 => indent + $"return $(Write(expr))"
         | Seq(items)                                   => 
             def withoutVoids = items.Filter(i => !(i is JsAST.Void));
-            $<#..$(withoutVoids; ";" + Environment.NewLine; Write(_, indent));#>               
+            $<#..$(withoutVoids; ";" + Environment.NewLine; Write(_, indent));#>
+        | ServerCall(meth, type, parms, cb)            =>
+            def jsparms = parms.Map(p => $"$(p[0]) : $(Write(p[1]))");
+            $<#$(indent)$$.get('/$type/$meth', {..$jsparms}, $(Write(cb)))#>;
         | Switch(expr, cases)                          =>
 $<#
-$indent switch($(Write(expr))) {
-$indent ..$(cases; "\n"; Write(_, indent + "  "))
-$indent }
-#>
+$(indent)switch($(Write(expr))) {
+$(indent)..$(cases; "\n"; Write(_, indent + "  "))
+$(indent)}#>
         | SwitchCase(id, body)                         =>
 $<#
-$indent $id:
-$indent $(Write(body, indent + "  "))
-$indent    break;
-#>
+$(indent)$id:
+$(indent)$(Write(body, indent + "  "))
+$(indent)   break;#>
         | Ternary(cond, then, els)                     => $"($(Write(cond)) ? $(Write(then)) : $(Write(els)))"  
-        | This                                         => "this"    
+        | This                                         => "self"    
         | Try(body, handler)                    => 
 $<#
-$indent try {
-$indent $(Write(body, indent + "  "))
-$indent } catch {
-$indent $(Write(handler, indent + "  "))
-$indent }
-#>
+$(indent)try {
+$(indent)$(Write(body, indent + "  "))
+$(indent)} catch {
+$(indent)$(Write(handler, indent + "  "))
+$(indent)}#>
         | TryFinally(body, handler)                    => 
 $<#
-$indent try {
-$indent $(Write(body, indent + "  "))
-$indent } finally {
-$indent $(Write(handler, indent + "  "))
-$indent }
-#>
-        | TypeOf(expr)                                 => $<# typeof $(Write(expr)) #>
-        | Undefined                                    =>  <#"undefined"#>    
+$(indent)try {
+$(indent)$(Write(body, indent + "  "))
+$(indent)} finally {
+$(indent)$(Write(handler, indent + "  "))
+$(indent)}#>
+        | TypeOf(expr)                                 => $<#typeof $(Write(expr))#>
+        | Undefined                                    =>  <#"undefined"#>
         | Void                                         => ""    
         | While(cond, body)                            =>
 $<#
-$indent while($(Write(cond))) {
-$indent $(Write(body, indent + "  "))
-$indent }
-#>
+$(indent)while($(Write(cond))) {
+$(indent)$(Write(body, indent + "  "))
+$(indent)}#>
         | WhileNamed(cond, body, name)                 =>
 $<#
-$indent $name: while($(Write(cond))) {
-$indent $(Write(body, indent + "  "))
-$indent }
-#>        
+$(indent)$name: while($(Write(cond))) {
+$(indent)$(Write(body, indent + "  "))
+$(indent)}#>        
         | NotImpl(val)                                 => $"/* Not implemented: $val */"    
         | _                                            => $"/* unknown $ast */"
         }

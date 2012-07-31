@@ -38,20 +38,10 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="EntityFramework, Version=4.1.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-      <Name>EntityFramework</Name>
-      <AssemblyName>EntityFramework.dll</AssemblyName>
-      <HintPath>..\packages\EntityFramework.4.1.10331.0\lib\net40\EntityFramework.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.Web.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
       <Name>Microsoft.Web.Infrastructure</Name>
       <AssemblyName>Microsoft.Web.Infrastructure.dll</AssemblyName>
       <HintPath>..\packages\MicrosoftWebInfrastructure.1.0.0.0\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.Web.Optimization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
-      <Name>Microsoft.Web.Optimization</Name>
-      <AssemblyName>Microsoft.Web.Optimization.dll</AssemblyName>
-      <HintPath>..\packages\Microsoft.Web.Optimization.0.1\lib\net40\Microsoft.Web.Optimization.dll</HintPath>
     </Reference>
     <Reference Include="Nemerle.Compiler">
       <SpecificVersion>False</SpecificVersion>
@@ -86,11 +76,6 @@
       <Name>System.Web.Mvc</Name>
       <AssemblyName>System.Web.Mvc.dll</AssemblyName>
       <HintPath>..\packages\AspNetMvc.4.0.10906.0\lib\net40\System.Web.Mvc.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Web.Providers, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
-      <Name>System.Web.Providers</Name>
-      <AssemblyName>System.Web.Providers.dll</AssemblyName>
-      <HintPath>..\packages\System.Web.Providers.1.0.1\lib\Net40\System.Web.Providers.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.Razor, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
       <Name>System.Web.Razor</Name>
@@ -149,6 +134,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="MVVM\Tutorial_3_SinglePageApps.n">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="MVVM\Tutorial_5_LoadingAndSaving.n">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.n" />
