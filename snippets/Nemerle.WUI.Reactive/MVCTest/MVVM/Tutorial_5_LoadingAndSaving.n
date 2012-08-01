@@ -41,9 +41,11 @@ namespace MVCTest
         }
                         
         LoadInitialTasks() : void {
-            server.Load(tasks => {
+            def c = tasks => {
                 Tasks = tasks.ToList();
-            });
+            };
+            server.Load(c);
+            c([]);
         }
         
         AddTask() : void {

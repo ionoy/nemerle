@@ -54,6 +54,13 @@ namespace Nemerle.WUI.Reactive
         | Assign(l, r) when allowedForAssignment.Any(al => al == r.GetType()) => a
         | Assign(left, expr)   => DelayAssignment(expr, left);
         | DefValue(left, expr) => JsAST.Seq([JsAST.DefValue(left, JsAST.Void()), DelayAssignment(expr, JsAST.LocalRef(left))]);
+        | Call(func, parms) when parms.Any(p => p is JsAST.Seq) =>
+            /*def ps = parms.Flatten(p : JsAST => 
+                match(p) {
+                | Seq(xs) => (xs.Take(xs.Length - 1).NToList(), xs.Last())
+                | _ => ([] : list[JsAST], p)
+                });*/
+            JsAST.Void();
         | Array(xs) => 
             JsAST.Array(xs.Flatten(x => match(x) {
             | JsAST.Array(xs2) => xs2
