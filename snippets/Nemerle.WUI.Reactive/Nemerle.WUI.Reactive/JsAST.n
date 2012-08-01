@@ -186,7 +186,7 @@ $(indent)}#>
         | Seq            { Items : list[JsAST];
             public override Write(indent = "" : string) : string {
                 def withoutVoids = Items.Filter(i => !(i is JsAST.Void));
-                $<#..$(withoutVoids; ";" + Environment.NewLine; e => e.Write(indent));#>
+                indent + $<#..$(withoutVoids; ";" + Environment.NewLine; e => e.Write(indent));#>
             }
         }
         | Switch         { Expr : JsAST; Cases : list[JsAST.SwitchCase];

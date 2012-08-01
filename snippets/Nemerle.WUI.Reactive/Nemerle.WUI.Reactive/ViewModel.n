@@ -34,12 +34,9 @@ namespace Nemerle.WUI.Reactive
   }
   
   module ViewModelImpl
-  {
-    Ident = "  ";
-    
+  {    
     public DoTransformBeforeInheritance(tb : TypeBuilder, typer : Typer) : void
     {
-      assert2(false);
       Macros.DefineCTX(typer);
       def vmInterface = <[ ttype: Nemerle.WUI.Reactive.IViewModel ]>;
       def superTypes = tb.GetDirectSuperTypes();
@@ -50,8 +47,6 @@ namespace Nemerle.WUI.Reactive
     
     public DoTransformBeforeTypedMembers(tb : TypeBuilder, typer : Typer) : void
     {
-      //assert2(false);
-            
       def processMember(member : ClassMember) : void
       {
         | Field(ty=ty) as field =>
@@ -124,6 +119,11 @@ namespace Nemerle.WUI.Reactive
       }
     
       assert2(false);
+      def ienType = <[ ttype : System.Collections.IEnumerable ]>;
+      def cl = JsClass(tb, "  ", ienType, typer);
+      def result = cl.Write();
+      def a = result;
+      
       foreach(m is MethodBuilder in tb.GetMethods()) {
         def methodTyper = Typer(tb, null, m, typer.Env);        
         methodTyper.RunFullTyping();
@@ -166,7 +166,7 @@ $<#this.$name = function(..$parms) {
         | meth is MethodBuilder when meth.IsConstructor => null
         | meth is MethodBuilder => convertMethod(member.DeclaringType, meth.Name, meth, false)
         | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>          
-          def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];          
+          def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];
           def isArray = arrayTypes.Any(t => prop.Getter.ReturnType.TryUnify(t));
           def ctor = if (isArray) "observableArray([])" else "observable()";
           $<#this.$(prop.Name) = ko.$ctor;#>;
