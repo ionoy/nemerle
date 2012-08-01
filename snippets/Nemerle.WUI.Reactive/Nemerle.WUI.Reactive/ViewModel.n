@@ -39,7 +39,7 @@ namespace Nemerle.WUI.Reactive
     
     public DoTransformBeforeInheritance(tb : TypeBuilder, typer : Typer) : void
     {
-      //assert2(false);
+      assert2(false);
       Macros.DefineCTX(typer);
       def vmInterface = <[ ttype: Nemerle.WUI.Reactive.IViewModel ]>;
       def superTypes = tb.GetDirectSuperTypes();
@@ -290,7 +290,7 @@ $<#
     public TranslateMethodBody(typer : Typer, type : TypeInfo, meth : MethodBuilder, lambdas : Dictionary[string, JsAST.Lambda]) : string
     {           
         def ast = GetMethodJsAST(typer, type, meth, lambdas);
-        JsASTWriter.Write(ast, "  ");
+        ast.Write();
     }
     
     private GetTypeConstructor(type : TypeInfo) : IMethod

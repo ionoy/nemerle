@@ -35,19 +35,7 @@ namespace MVCTest
                 result
             }
         }
-        
-        public this() {
-            LoadInitialTasks();
-        }
-                        
-        LoadInitialTasks() : void {
-            def c = tasks => {
-                Tasks = tasks.ToList();
-            };
-            server.Load(c);
-            c([]);
-        }
-        
+                
         AddTask() : void {
             Tasks.Add(Task() <- (Title = NewTaskText, IsDone = false, _destroy = false));
             NewTaskText = "";

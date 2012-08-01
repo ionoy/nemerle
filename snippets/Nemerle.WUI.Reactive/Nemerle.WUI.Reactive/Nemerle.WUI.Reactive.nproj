@@ -82,9 +82,6 @@
     <Compile Include="JsASTOptimizer.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="JsASTWriter.n">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="JsKnownMembers.n">
       <SubType>Code</SubType>
     </Compile>
