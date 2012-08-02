@@ -45,24 +45,8 @@ namespace Nemerle.WUI.Reactive
         tb.AddImplementedInterface(<[ Nemerle.WUI.Reactive.IViewModel ]>);
     }
     
-    public DoTransformBeforeTypedMembers(tb : TypeBuilder, typer : Typer) : void
+    public DoTransformBeforeTypedMembers(_tb : TypeBuilder, _typer : Typer) : void
     {
-      def processMember(member : ClassMember) : void
-      {
-        | Field(ty=ty) as field =>
-          match (ty)
-          {            
-            | _ => ()
-          }
-          
-        | _ => ()
-      }
-      
-      match (tb.Ast)
-      {
-        | TopDeclaration.Class(decls=decls) => foreach (d in decls) processMember(d)
-        | _ => ()
-      }
     }
     
     public DoTransform(tb : TypeBuilder, typer : Typer) : void
@@ -122,7 +106,7 @@ namespace Nemerle.WUI.Reactive
       def ienType = <[ ttype : System.Collections.IEnumerable ]>;
       def cl = JsClass(tb, "  ", ienType, typer);
       def result = cl.Write();
-      def a = result;
+      def a = result; 
       
       foreach(m is MethodBuilder in tb.GetMethods()) {
         def methodTyper = Typer(tb, null, m, typer.Env);        

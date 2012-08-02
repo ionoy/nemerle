@@ -85,6 +85,7 @@ namespace Nemerle.WUI.Reactive
                 def newItems = match(bodyItems.Rev()) {
                 | Break :: secondToLast :: rest => JsAST.Break() :: delayAssignment(secondToLast) :: rest;
                 | last :: rest => delayAssignment(last) :: rest;
+                | [] => []
                 }
                 JsAST.Seq(newItems.Rev())
             | something => JsAST.Assign(left, delayAssignment(something))

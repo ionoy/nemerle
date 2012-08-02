@@ -30,7 +30,7 @@ namespace Nemerle.WUI.Reactive
         | Call(StaticRef(from = fromType, mem = meth) as left, parms, _) => ConvertMethod(fromType.TypeInfo, builder(left), meth, parms.Map(p => builder(p.expr)))
         | Call(OpCode as op, parms, _) => JsAST.Call(builder(op), parms.Map(p => builder(p.expr)))
         | Call(Base, _, _) => JsAST.Void()        
-        | Call(s, _, _) => Message.Warning("Unsupported call to $s"); JsAST.Void()
+        | Call(s, _, _) => Message.Warning($"Unsupported call to $s"); JsAST.Void()
         }        
         result
       }
@@ -61,26 +61,6 @@ namespace Nemerle.WUI.Reactive
         | _ when member.Name.StartsWith("get_")                                               => JsAST.PropertyGet(left, RemoveGetSet(member.Name))
         | (_, h :: []) when member.Name.StartsWith("set_")                                    => JsAST.PropertySet(left, RemoveGetSet(member.Name), h)            
         | _                                                                                   => Message.Warning(member.Location, $"$(member.Name) not implemented in JS"); JsAST.Call(JsAST.MethodRef(left, RemoveGetSet(member.Name)), parms)
-        }
-      }
-      
-      public ConvertField(typeName : string, member : IMember, parms : list[JsAST]) : JsAST
-      {
-        match(member.Name) {
-        | _ when typeName == typeof(list[_].Nil).FullName => JsAST.Array([])
-        | _ => 
-            Message.Warning($"member.Name $(member.Name) unsupported by type $typeName");
-            JsAST.NotImpl();
-        }
-      }
-      
-      public ConvertProperty(typeName : string, member : IMember, parms : list[JsAST]) : JsAST
-      {
-        match(member.Name) {
-        | _ when typeName == typeof(list[_].Nil).FullName => JsAST.Array([])
-        | _ => 
-            Message.Warning($"member.Name $(member.Name) unsupported by type $typeName");
-            JsAST.NotImpl();
         }
       }
       

@@ -51,27 +51,38 @@ namespace Nemerle.WUI.Reactive
             }
         }
         | Call           { Fun : JsAST; Parameters : list[JsAST];
-            public override Write(_ = "" : string) : string {
+            public override Write(indent = "" : string) : string {
                 match(this) {
-                | Call(OpCode as op, e1 :: e2 :: [])           => $"$(e1.Write()) $(op.Write()) $(e2.Write())"
-                | Call(Constructor(type), parms)               => $<#new $(type.Name)(..$(parms; ","; e => e.Write("")))#>
-                | Call(Indexer(obj), parms)                    => $<#$(obj.Write())[..$(parms; ","; e => e.Write(""))]#>    
-                | Call(op, parms)                              => $<#$(op.Write())(..$(parms; ","; e => e.Write("")))#>    
+                | Call(OpCode as op, e1 :: e2 :: []) => $"$(e1.Write()) $(op.Write()) $(e2.Write())"
+                | Call(Constructor(type), parms)     => indent + $<#new $(type.Name)(..$(parms; ","; e => e.Write("")))#>
+                | Call(Indexer(obj), parms)          => indent + $<#$(obj.Write())[..$(parms; ","; e => e.Write(""))]#>    
+                | Call(op, parms)                    => indent + $<#$(op.Write())(..$(parms; ","; e => e.Write("")))#>    
                 }
             }
             public override Transform() : JsAST {
                 match(this) {
                 | Call(OpCode("==="), something :: Literal(Bool(true)) :: []) 
                 | Call(OpCode("==="), Literal(Bool(true)) :: something :: []) => something.Transform()
-                | Call(OpCode as op, Call(MethodRef(Seq as seq,  m), parms) as call :: rest) => 
+                | Call(OpCode as op, Call(MethodRef(Seq,  _), _) as call :: rest) => 
                     def varName = JsASTHelper.GetTemporaryVariableName();
                     JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()), JsASTHelper.DelayAssignment(call, JsAST.LocalRef(varName)), JsAST.Call(op, JsAST.LocalRef(varName) :: rest)]).Transform()
-                | Call(OpCode as op, head :: (Call(MethodRef(Seq as seq,  m), parms) as call) :: []) => 
+                | Call(OpCode as op, head :: (Call(MethodRef(Seq,  _), _) as call) :: []) => 
                     def varName = JsASTHelper.GetTemporaryVariableName();
                     JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()), JsASTHelper.DelayAssignment(call, JsAST.LocalRef(varName)), JsAST.Call(op, [head, JsAST.LocalRef(varName)])]).Transform()
                 | Call(OpCode(op), something :: Literal(Null) :: []) 
                 | Call(OpCode(op), Literal(Null) :: something :: []) => 
                     JsAST.Call(JsAST.OpCode("&&"), [JsAST.Call(JsAST.OpCode(op), [something, JsAST.Literal(JsLiteral.Null())]), JsAST.Call(JsAST.OpCode(op), [JsAST.TypeOf(something), JsAST.Literal(JsLiteral.String("undefined"))])]).Transform() 
+                | Call(func, parms) when parms.OfType.[JsAST.Seq]().Any() =>
+                    def newParms = parms.Map(p : JsAST => {
+                        def varName = JsASTHelper.GetTemporaryVariableName();
+                        match(p) {
+                        | xs is Seq => (JsAST.Seq([JsAST.DefValue(varName, JsAST.Void()), JsASTHelper.DelayAssignment(xs, JsAST.LocalRef(varName))]), JsAST.LocalRef(varName))
+                        | x => (JsAST.Void(), x)
+                        }
+                    });
+                    def paramInits = JsAST.Seq(newParms.Filter((i, _)=> !(i is JsAST.Void)).Map((i, _) => i));
+                    def newParms = newParms.Map((_, p) => p);
+                    JsAST.Seq([paramInits, JsAST.Call(func, newParms)])
                 | _ => this
                 }
             }
@@ -240,7 +251,8 @@ $(indent)}#>
         | Seq            { Items : list[JsAST];
             public override Write(indent = "" : string) : string {
                 def withoutVoids = Items.Filter(i => !(i is JsAST.Void));
-                indent + $<#..$(withoutVoids; ";" + Environment.NewLine; e => e.Write(indent));#>
+
+                $<#..$(withoutVoids; ";" + Environment.NewLine; e => e.Write(indent))#>
             }
         }
         | Switch         { Expr : JsAST; Cases : list[JsAST.SwitchCase];
@@ -337,7 +349,7 @@ $(indent)}#>
             }
         }
         
-        public abstract Write(indent = "" : string) : string { string.Empty; };
+        public abstract Write(_indent = "" : string) : string { string.Empty; };
         public virtual Transform() : JsAST { this }
         public static AllowedForAssignment : list[Type] = [typeof(JsAST.Call), typeof(JsAST.MethodRef), typeof(JsAST.LocalRef), 
                                                            typeof(JsAST.Literal), typeof(JsAST.Code), typeof(JsAST.Void), 

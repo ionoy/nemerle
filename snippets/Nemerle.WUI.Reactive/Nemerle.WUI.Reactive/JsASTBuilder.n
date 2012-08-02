@@ -71,13 +71,13 @@ namespace Nemerle.WUI.Reactive
                 }
             | LocalFunRef                       => Message.Warning(expr.Location, "LocalFunRef not implemented"); JsAST.NotImpl()
             | LocalRef(decl)                    => JsAST.LocalRef(decl.Name)
-            | MacroEnvelope(expanded = ex, original = org, the_macro = macr) => 
+            | MacroEnvelope(expanded = ex, original = org, the_macro = _) => 
                 match(org) { 
                 | <[ foreach($it in $coll) $body  ]> => 
                     def it = it.ToString();
                     def coll = if(coll.TypedObject is TExpr) Build(coll.TypedObject :> TExpr) else JsAST.LocalRef(coll.ToString());
                     def body = match(body) {
-                    | Sequence(h :: t) => if(h.TypedObject is TExpr) Build(h.TypedObject :> TExpr) else JsAST.Code(h.ToString());
+                    | Sequence(h :: _) => if(h.TypedObject is TExpr) Build(h.TypedObject :> TExpr) else JsAST.Code(h.ToString());
                     | pexpr => if(pexpr.TypedObject is TExpr) Build(pexpr.TypedObject :> TExpr) else JsAST.Code(pexpr.ToString());
                     }
                     
@@ -89,7 +89,7 @@ namespace Nemerle.WUI.Reactive
                     }                    
                 | _ => Build(ex)
                 }                
-            | Match(expr, cases)                => Message.Warning(expr.Location, "Match not implemented"); JsAST.NotImpl()
+            | Match(expr, _)                => Message.Warning(expr.Location, "Match not implemented"); JsAST.NotImpl()
             | MethodAddress                     => Message.Warning(expr.Location, "MethodAddress not implemented"); JsAST.NotImpl()
             | MethodOf                          => Message.Warning(expr.Location, "MethodOf not implemented"); JsAST.NotImpl()
             | MethodRef(obj, meth, _, _)        => 
@@ -104,17 +104,17 @@ namespace Nemerle.WUI.Reactive
             | Sequence(e1, e2)                  => JsAST.Seq([Build(e1), Build(e2)])
             | StaticEventRef                    => Message.Warning(expr.Location, "StaticEventRef not implemented"); JsAST.NotImpl()
             | StaticPropertyRef                 => Message.Warning(expr.Location, "StaticPropertyRef not implemented"); JsAST.NotImpl()
-            | StaticRef(from, mem, _)           => JsAST.NotImpl()
+            | StaticRef(_, _, _)                => JsAST.NotImpl()
             | Switch                            => Message.Warning(expr.Location, "Switch not implemented"); JsAST.NotImpl()
             | This                              => JsAST.This()
             | Throw                             => Message.Warning(expr.Location, "Throw not implemented"); JsAST.NotImpl()
-            | Try(b, h)                         => Message.Warning(expr.Location, "Try not implemented"); JsAST.NotImpl()
+            | Try(_, _)                         => Message.Warning(expr.Location, "Try not implemented"); JsAST.NotImpl()
             | TryFinally(b, h)                  => JsAST.TryFinally(Build(b), Build(h))
             | Tuple                             => Message.Warning(expr.Location, "Tuple not implemented"); JsAST.NotImpl()
             | TupleIndexer                      => Message.Warning(expr.Location, "TupleIndexer not implemented"); JsAST.NotImpl()
-            | TypeConversion(e, targetType, kind, loc)  => Build(e)
-            | TypeOf                    => JsAST.NotImpl()
-            | Use                       => JsAST.NotImpl()
+            | TypeConversion(e, _, _, _)        => Build(e)
+            | TypeOf                            => JsAST.NotImpl()
+            | Use                               => JsAST.NotImpl()
             | _ => Message.Error("Unmatched TExpr $expr"); JsAST.NotImpl();
           }
         }
@@ -211,19 +211,6 @@ namespace Nemerle.WUI.Reactive
             }
           | _ => None()
           }
-      }
-      
-      ConvertPattern(p : Pattern) : JsAST
-      {   
-        | Wildcard    => JsAST.Literal(JsLiteral.Bool(true))
-        | As          //{ pat : Pattern; decl : LocalValue; }
-        | HasType     //{ typ : FixedType; }
-        | Tuple       //{ args : list [Pattern]; }
-        | Record      //{ args : list [IMember * Pattern]; }
-        | Application //{ name : TypeInfo; arg : Pattern; }
-        | Enum        //{ fld : IField; val : Nemerle.Compiler.Literal; }
-        | Literal     //{ lit : Nemerle.Compiler.Literal; }
-        | Error       => JsAST.NotImpl()
       }
   }
 }
