@@ -133,13 +133,13 @@ $(indent)}#>);
             match(method.Header.Body) { 
             | FunBody.Typed(typedBody) => 
                 mutable jsAst = JsASTBuilder.Build(typedBody, lambdas);
-                jsAst = JsASTOptimizer.LabelsToSwitch(jsAst);
-                jsAst = JsASTOptimizer.Optimize(jsAst);            
-                jsAst = JsASTOptimizer.FlattenAndRemoveVoids(jsAst);
-                jsAst = JsASTOptimizer.RemoveEmptyBranches(jsAst);
+                jsAst = JsASTHelper.LabelsToNamedWhile(jsAst);
+                jsAst = JsASTHelper.TransformBottomUp(jsAst);            
+                jsAst = JsASTHelper.FlattenAndRemoveVoids(jsAst);
+                jsAst = JsASTHelper.RemoveEmptyBranches(jsAst);
             
                 when(!(method.Header.ReturnType is FixedType.Void()) && !method.IsConstructor)
-                    jsAst = JsASTOptimizer.MakeReturn(jsAst);
+                    jsAst = JsASTHelper.MakeReturn(jsAst);
                 
                 jsAst;        
             | FunBody.Parsed => 

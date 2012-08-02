@@ -79,7 +79,7 @@
     <Compile Include="JsASTBuilder.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="JsASTOptimizer.n">
+    <Compile Include="JsASTHelper.n">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="JsClass.n">
