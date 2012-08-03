@@ -210,9 +210,9 @@ $(Body.Write())
                 $"$(Obj.Write()).$Method"
             }
         }
-        | StaticRef      { Type : string; Method : string;
+        | StaticRef      { Type : string; Member : string;
             public override Write(_ = "" : string) : string {
-                $"$Type.$Method"
+                $"$Type.$Member"
             }
         }
         | FieldRef       { Obj : JsAST; Parameter : string;

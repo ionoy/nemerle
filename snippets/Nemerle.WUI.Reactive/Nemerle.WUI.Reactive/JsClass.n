@@ -39,7 +39,7 @@ namespace Nemerle.WUI.Reactive
             def constructorBody = GetConstructorBody(bodyIndent);
             def methods = GetMethods(bodyIndent);                        
 
-$<#$(Indent)function $(ClassType.Name)(..$constructorParams) {
+$<#$(Indent)function $(GetProperName(ClassType))(..$constructorParams) {
 $(bodyIndent)var self = this;
 $properties
 $fields
@@ -130,8 +130,8 @@ $(indent)}#>);
         
         public GetMethodJsAST(method : MethodBuilder, lambdas : Dictionary[string, JsAST.Lambda]) : JsAST 
         {        
-            match(method.Header.Body) { 
-            | FunBody.Typed(typedBody) => 
+            match(method.Header.Body) {
+            | FunBody.Typed(typedBody) =>
                 mutable jsAst = JsASTBuilder.Build(typedBody, lambdas);
                 jsAst = JsASTHelper.LabelsToNamedWhile(jsAst);
                 jsAst = JsASTHelper.TransformBottomUp(jsAst);            
@@ -162,6 +162,10 @@ $(indent)}#>);
         {           
             def ast = GetMethodJsAST(meth, lambdas);
             ast.Write(indent);
+        }
+        
+        public static GetProperName(type : TypeInfo) : string {
+            type.FullName.Replace(".", "_")
         }
     }
 }
