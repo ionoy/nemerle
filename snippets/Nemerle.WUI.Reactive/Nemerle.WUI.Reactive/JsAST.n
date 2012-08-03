@@ -14,8 +14,8 @@ namespace Nemerle.WUI.Reactive
     public variant JsAST
     {
         | Assign         { Left : JsAST; Right : JsAST;
-            public override Write(indent = "" : string) : string {
-                indent + $"$(Left.Write(indent)) = $(Right.Write(indent))"
+            public override Write(_indent = "" : string) : string {
+                $"$(Left.Write()) = $(Right.Write())"
             }
             public override Transform() : JsAST {
                 match(this) {
@@ -47,16 +47,16 @@ namespace Nemerle.WUI.Reactive
         }
         | Break          {
             public override Write(indent = "" : string) : string {
-                indent + "break"
+                "break"
             }
         }
         | Call           { Fun : JsAST; Parameters : list[JsAST];
             public override Write(indent = "" : string) : string {
                 match(this) {
                 | Call(OpCode as op, e1 :: e2 :: []) => $"$(e1.Write()) $(op.Write()) $(e2.Write())"
-                | Call(Constructor(type), parms)     => indent + $<#new $(type.Name)(..$(parms; ","; e => e.Write("")))#>
-                | Call(Indexer(obj), parms)          => indent + $<#$(obj.Write())[..$(parms; ","; e => e.Write(""))]#>    
-                | Call(op, parms)                    => indent + $<#$(op.Write())(..$(parms; ","; e => e.Write("")))#>    
+                | Call(Constructor(type), parms)     => $<#new $(type.Name)(..$(parms; ","; e => e.Write("")))#>
+                | Call(Indexer(obj), parms)          => $<#$(obj.Write())[..$(parms; ","; e => e.Write(""))]#>    
+                | Call(op, parms)                    => $<#$(op.Write())(..$(parms; ","; e => e.Write("")))#>    
                 }
             }
             public override Transform() : JsAST {
@@ -89,12 +89,12 @@ namespace Nemerle.WUI.Reactive
         }
         | Code           { CodeString : string;
             public override Write(indent = "" : string) : string {
-                indent + $"$CodeString"
+                $"$CodeString"
             }
         }
         | Continue       { LoopName : string;
             public override Write(indent = "" : string) : string {
-                indent + $"continue $LoopName"
+                $"continue $LoopName"
             }
         }
         | Constructor    { Type : TypeInfo;
@@ -104,17 +104,17 @@ namespace Nemerle.WUI.Reactive
         }
         | DefFunction    { Obj : JsAST; Parameters : list[JsAST]; Body : JsAST;
             public override Write(indent = "" : string) : string {
-$<#$(indent)function(..$(Parameters; ";"; p => p.Write("")) {
-$(Body.Write(indent + "  "))
-$(indent)}
+$<#function(..$(Parameters; ";"; p => p.Write("")) {
+$(Body.Write("  "))
+}
 #>
             }
         }
         | DefValue       { Name : string; Val : JsAST;
             public override Write(indent = "" : string) : string {
                 match(this) {
-                | DefValue(name, Void)                         => indent + $"var $name"      
-                | DefValue(name, val)                          => indent + $"var $name = $(val.Write())"   
+                | DefValue(name, Void)                         => $"var $name"      
+                | DefValue(name, val)                          => $"var $name = $(val.Write())"   
                 }
             }
             public override Transform() : JsAST {
@@ -127,10 +127,10 @@ $(indent)}
         | For            { ItName : string; Collection : JsAST; Body : JsAST;
             public override Write(indent = "" : string) : string {
 $<#
-$(indent)for(var $ItName in $(Collection.Write())) {
-$(indent)var $ItName = $(Collection.Write())[$ItName];
-$(Body.Write(indent + "  "))
-$(indent)}#> 
+for(var $ItName in $(Collection.Write())) {
+var $ItName = $(Collection.Write())[$ItName];
+$(Body.Write("  "))
+}#> 
             }
         }
         | Goto           { LabelId : int;
@@ -141,11 +141,11 @@ $(indent)}#>
         | If             { Cond : JsAST; Body : JsAST; ElseBody : JsAST;
             public override Write(indent = "" : string) : string {
 $<# 
-$(indent)if($(Cond.Write())) { 
-$(Body.Write(indent + "  "))
-$(indent)} else {
-$(ElseBody.Write(indent + "  "))
-$(indent)}#>
+if($(Cond.Write())) { 
+$(Body.Write("  "))
+} else {
+$(ElseBody.Write("  "))
+}#>
             }
             public override Transform() : JsAST {
                 match(this) {        
@@ -172,21 +172,21 @@ $(indent)}#>
         | JustIf         { Cond : JsAST; Body : JsAST;
             public override Write(indent = "" : string) : string {
 $<# 
-$(indent)if($(Cond.Write())) { 
-$(Body.Write(indent + "  "))
-$(indent)}#>
+if($(Cond.Write())) { 
+$(Body.Write("  "))
+}#>
             }
         }               
         | Label          { Id : int; Body : JsAST;
             public override Write(indent = "" : string) : string {
-                $<#$(Body.Write(indent + "  "))#>
+                $<#$(Body.Write("  "))#>
             }
         }
         | Lambda         { Name : string; Parameters : list[string]; Body : JsAST;
             public override Write(indent = "" : string) : string {
-$<#$(indent)function(..$Parameters) {
-$(Body.Write(indent))
-$(indent)}#>
+$<#function(..$Parameters) {
+$(Body.Write())
+}#>
             }
         }
         | Literal        { Value : JsLiteral;
@@ -250,29 +250,29 @@ $(indent)}#>
         }
         | Seq            { Items : list[JsAST];
             public override Write(indent = "" : string) : string {
-                def withoutVoids = Items.Filter(i => !(i is JsAST.Void));
-
-                $<#..$(withoutVoids; ";" + Environment.NewLine; e => e.Write(indent))#>
+                def ss = Items.Filter(i => !(i is JsAST.Void))
+                              .Map(i => indent + i.Write() + ";");                
+                $<#..$(ss; Environment.NewLine)#>
             }
         }
         | Switch         { Expr : JsAST; Cases : list[JsAST.SwitchCase];
             public override Write(indent = "" : string) : string {
-$<#$(indent)switch($(Expr.Write())) {
-$(indent)..$(Cases; "\n"; e => e.Write(indent + "  "))
-$(indent)}#>
+$<#switch($(Expr.Write())) {
+..$(Cases; "\n"; e => e.Write("  "))
+}#>
             }
         }
         | SwitchCase     { Id : int; Body : JsAST;
             public override Write(indent = "" : string) : string {
-$<#$(indent)$Id:
-$(indent)$(Body.Write(indent + "  "))
-$(indent)break;#>
+$<#$Id:
+$(Body.Write("  "))
+break;#>
             }
         }
         | ServerCall     { MethodName : string; TypeName : string; Parameters : list[string * JsAST]; Callback : JsAST;
             public override Write(indent = "" : string) : string {
                 def jsparms = Parameters.Map((name, val) => $"$name : $(val.Write())");
-                $<#$(indent)$$.get('/$TypeName/$MethodName', {..$jsparms}, $(Callback.Write()))#>;
+                $<#$$.get('/$TypeName/$MethodName', {..$jsparms}, $(Callback.Write()))#>;
             }
         }    
         | Ternary        { Cond : JsAST; Body : JsAST; ElseBody : JsAST;
@@ -288,20 +288,20 @@ $(indent)break;#>
         | Try            { Body : JsAST; Handler : JsAST;
             public override Write(indent = "" : string) : string {
 $<#
-$(indent)try {
-$(Body.Write(indent + "  "))
-$(indent)} catch {
-$(Handler.Write(indent + "  "))
-$(indent)}#>
+try {
+$(Body.Write("  "))
+} catch {
+$(Handler.Write("  "))
+}#>
             }
         }
         | TryFinally     { Body : JsAST; Handler : JsAST;
             public override Write(indent = "" : string) : string {
-$<#$(indent)try {
-$(Body.Write(indent + "  "))
-$(indent)} finally {
-$(Handler.Write(indent + "  "))
-$(indent)}#>
+$<#try {
+$(Body.Write("  "))
+} finally {
+$(Handler.Write("  "))
+}#>
             }
         }
         | TypeOf         { Expr : JsAST;
@@ -327,16 +327,16 @@ $(indent)}#>
             
         | While          { Cond : JsAST; Body : JsAST;
             public override Write(indent = "" : string) : string {
-$<#$(indent)while($(Cond.Write())) {
-$(Body.Write(indent + "  "))
-$(indent)}#>
+$<#while($(Cond.Write())) {
+$(Body.Write("  "))
+}#>
             }
         }
         | WhileNamed     { Cond : JsAST; Body : JsAST; Name : string;
             public override Write(indent = "" : string) : string {
-$<#$(indent)$Name: while($(Cond.Write())) {
-$(Body.Write(indent + "  "))
-$(indent)}#>  
+$<#$Name: while($(Cond.Write())) {
+$(Body.Write("  "))
+}#>  
             }
         }
         | NotImpl { 
