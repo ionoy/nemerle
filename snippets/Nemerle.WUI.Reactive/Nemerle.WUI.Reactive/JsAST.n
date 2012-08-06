@@ -46,15 +46,15 @@ namespace Nemerle.WUI.Reactive
             }
         }
         | Break          {
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
                 "break"
             }
         }
         | Call           { Fun : JsAST; Parameters : list[JsAST];
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
                 match(this) {
                 | Call(OpCode as op, e1 :: e2 :: []) => $"$(e1.Write()) $(op.Write()) $(e2.Write())"
-                | Call(Constructor(type), parms)     => $<#new $(type.Name)(..$(parms; ","; e => e.Write("")))#>
+                | Call(Constructor(type), parms)     => $<#new $(JsClass.GetProperName(type))(..$(parms; ","; e => e.Write("")))#>
                 | Call(Indexer(obj), parms)          => $<#$(obj.Write())[..$(parms; ","; e => e.Write(""))]#>    
                 | Call(op, parms)                    => $<#$(op.Write())(..$(parms; ","; e => e.Write("")))#>    
                 }
@@ -88,12 +88,12 @@ namespace Nemerle.WUI.Reactive
             }
         }
         | Code           { CodeString : string;
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
                 $"$CodeString"
             }
         }
         | Continue       { LoopName : string;
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
                 $"continue $LoopName"
             }
         }
@@ -103,7 +103,7 @@ namespace Nemerle.WUI.Reactive
             }
         }
         | DefFunction    { Obj : JsAST; Parameters : list[JsAST]; Body : JsAST;
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
 $<#function(..$(Parameters; ";"; p => p.Write("")) {
 $(Body.Write("  "))
 }
@@ -111,7 +111,7 @@ $(Body.Write("  "))
             }
         }
         | DefValue       { Name : string; Val : JsAST;
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
                 match(this) {
                 | DefValue(name, Void)                         => $"var $name"      
                 | DefValue(name, val)                          => $"var $name = $(val.Write())"   
@@ -125,7 +125,7 @@ $(Body.Write("  "))
             }            
         }
         | For            { ItName : string; Collection : JsAST; Body : JsAST;
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
 $<#
 for(var $ItName in $(Collection.Write())) {
 var $ItName = $(Collection.Write())[$ItName];
@@ -170,7 +170,7 @@ $(ElseBody.Write("  "))
             }
         }      
         | JustIf         { Cond : JsAST; Body : JsAST;
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
 $<# 
 if($(Cond.Write())) { 
 $(Body.Write("  "))
@@ -178,12 +178,12 @@ $(Body.Write("  "))
             }
         }               
         | Label          { Id : int; Body : JsAST;
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
                 $<#$(Body.Write("  "))#>
             }
         }
         | Lambda         { Name : string; Parameters : list[string]; Body : JsAST;
-            public override Write(indent = "" : string) : string {
+            public override Write(_indent = "" : string) : string {
 $<#function(..$Parameters) {
 $(Body.Write())
 }#>

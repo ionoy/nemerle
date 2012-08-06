@@ -61,9 +61,6 @@
     <Compile Include="MoveToDll\IJsonSupport.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="MoveToDll\IViewModel.n">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="MoveToDll\JsAttribute.n">
       <SubType>Code</SubType>
     </Compile>
@@ -73,22 +70,7 @@
     <Compile Include="MoveToDll\Template.n">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="MoveToDll\Utils.n">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MoveToDll\VMArray.n">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MVVMs\BetterList.n">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MVVMs\ClickCounter.n">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MVVMs\ControlTypes.n">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MVVMs\HelloWorld.n">
+    <Compile Include="MVVMs\Tutorial_5_LoadingAndSaving.n">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.n" />

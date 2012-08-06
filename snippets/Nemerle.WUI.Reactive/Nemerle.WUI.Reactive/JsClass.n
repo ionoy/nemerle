@@ -38,13 +38,22 @@ namespace Nemerle.WUI.Reactive
             def staticFields = GetStaticFields(Indent);
             def constructorBody = GetConstructorBody(bodyIndent);
             def methods = GetMethods(bodyIndent);                        
-
-$<#$(Indent)function $(GetProperName(ClassType))(..$constructorParams) {
+            def innerClasses = GetNestedClasses();
+            def returning = match(ClassType.Name) {
+                | "Function" => "return apply;"
+                | "FunctionVoid" => "return apply_void;"
+                | _ => ""
+            }
+            
+$<#
+$innerClasses
+$(Indent)function $(GetProperName(ClassType))(..$constructorParams) {
 $(bodyIndent)var self = this;
 $properties
 $fields
 $constructorBody
 $methods
+$returning
 $(Indent)}
 $staticFields#>
         }
@@ -104,7 +113,13 @@ $staticFields#>
         
         GetConstructorBody(indent : string) : string 
         {
-            TranslateMethodBody(Constructor :> MethodBuilder, Dictionary(), indent);
+            def ctors = ClassType.GetConstructors(BindingFlags.Static | BindingFlags.NonPublic);
+            def a = ctors;
+            def ctor = Constructor :> MethodBuilder;
+            if(ctor != null)
+                TranslateMethodBody(ctor, Dictionary(), indent);
+            else
+                ""
         }
         
         GetMethods(indent : string) : string 
@@ -121,6 +136,14 @@ $(TranslateMethodBody(m :> MethodBuilder, Dictionary(), indent + "  "))
 $(indent)}#>);
 
             $<#..$(methods; "\n")#>
+        }
+        
+        GetNestedClasses() : string 
+        {
+            def nested = ClassType.DeclaredNestedTypes
+                                  .Filter(c => c.Name != "Server" && c.Name != "ServerProxy")
+                                  .Map(c => JsClass(c, Indent, IEnumerableType, Typer).Write());
+            $"..$(nested; Environment.NewLine)"
         }
         
         TypeIsArray(type : TypeInfo) : bool 
@@ -141,7 +164,10 @@ $(indent)}#>);
                 when(!(method.Header.ReturnType is FixedType.Void()) && !method.IsConstructor)
                     jsAst = JsASTHelper.MakeReturn(jsAst);
                 
-                jsAst;        
+                match(jsAst) {
+                | Seq => jsAst
+                | _ => JsAST.Seq([jsAst])
+                }
             | FunBody.Parsed => 
                 def oldEmitDebug = Typer.Manager.Options.EmitDebug;
                 def body = method.Body;

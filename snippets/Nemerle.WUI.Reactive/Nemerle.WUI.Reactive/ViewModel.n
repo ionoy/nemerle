@@ -45,8 +45,12 @@ namespace Nemerle.WUI.Reactive
         tb.AddImplementedInterface(<[ Nemerle.WUI.Reactive.IViewModel ]>);
     }
     
-    public DoTransformBeforeTypedMembers(_tb : TypeBuilder, _typer : Typer) : void
+    public DoTransformBeforeTypedMembers(tb : TypeBuilder, typer : Typer) : void
     {
+        Macros.DefineCTX(typer);
+        assert2(false);
+        def c = JsClass(tb, "", <[ ttype : System.Collections.IEnumerable ]>, typer);
+        _ = c.Write(); //Generate lambdas
     }
     
     public DoTransform(tb : TypeBuilder, typer : Typer) : void
@@ -97,7 +101,7 @@ namespace Nemerle.WUI.Reactive
                   ]>);
               | _ => ()              
           }
-          
+        
           ptb.Compile();
           ctb.Compile();
       }

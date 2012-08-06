@@ -1,0 +1,39 @@
+﻿using Nemerle.Collections;
+using Nemerle.Text;
+using Nemerle.Utility;
+using Nemerle.Extensions;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+using Nemerle.Xml;
+using Nemerle.WUI.Reactive;
+using System.Xml.Linq;
+
+namespace Test
+{
+    [Nemerle.WUI.Reactive.ViewModel]
+    public class TestLambdaViewModel
+    {        
+        TestLambda() : void {
+            MethodWithCallback(s : string => { Console.WriteLine(s); s } );  
+        }
+        
+        MethodWithCallback(cb : string -> string) : void
+        {}        
+    }
+
+    public partial module Views
+    {
+        [View()]
+        public LoadingAndSavingView(viewModel : TestLambdaViewModel) : XElement
+        {
+            _ = viewModel;
+            xml <# 
+            <div xmlns="">
+            </div>
+            #>
+        }
+    }
+}
