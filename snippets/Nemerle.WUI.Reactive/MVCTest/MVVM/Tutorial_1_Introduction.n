@@ -12,7 +12,7 @@ using System.Xml.Linq;
 
 namespace MVCTest
 {
-  [Record, /*ViewModel*/]
+  [Record, ViewModel]
   public class IntroductionViewModel
   {
     public FirstName     : string { get; set; }
@@ -21,17 +21,17 @@ namespace MVCTest
         
     CapitalizeLastName() : void
     {
-        LastName = LastName.ToUpper();        
+        LastName = LastName.ToUpper();
     }
   }
 
   public partial module Views
   {
     [View()]
-    public IntroductionView(viewModel : IntroductionViewModel) : XElement
+    public IntroductionView(viewModel : IntroductionViewModel) : string
     {
       _ = viewModel;
-      xml <# 
+      <# 
         <div xmlns="">
             <p>First name: <strong data-bind="text: FirstName"> </strong></p>
             <p>Last name: <strong data-bind="text: LastName"> </strong></p>

@@ -80,10 +80,12 @@ namespace Nemerle.WUI.Reactive
                   def methodName = ctb.ParsedName.NewName(method.Name);
                             
                   ctb.Define(<[ decl: 
-                    public $(methodName : name) (..$fparms) : System.Web.Mvc.JsonResult 
+                    public $(methodName : name) (..$fparms) : System.Web.Mvc.ActionResult
                     {
                         def result = _server.$(method.Name : dyn)(..$parameters);
-                        Json(result, System.Web.Mvc.JsonRequestBehavior.AllowGet);
+                        def settings = Newtonsoft.Json.JsonSerializerSettings();
+                        settings.TypeNameHandling = Newtonsoft.Json.TypeNameHandling.Objects;
+                        Content(Newtonsoft.Json.JsonConvert.SerializeObject(result, settings));
                     }
                   ]>);
                   
@@ -116,24 +118,33 @@ namespace Nemerle.WUI.Reactive
       def constructor = cl.Constructor;
       def constructorParams = if(constructor != null) constructor.GetParameters().Map(p => p.Name) else [];
       def ctor = constructor :> MethodBuilder;
-      def paramAssignments = addParams(constructorParams, ctor.Body);
-      tb.Define(<[ decl: __constructorParams : List[object] = List.[object]() ]>);
-      tb.Define(<[ decl: UpdateConstructorParams() : void {
-          $paramAssignments
-      } ]>);
+      ctor.Body = addParams(constructorParams, <[ $(ctor.Body); "js constructor end"; __constructorParams = List(); ]>);
+      tb.Define(<[ decl: __constructorParams : List[object] ]>);
       def result = cl.Write();
       
       def toTypedObjectFunction = 
 <#
 function ToTypedObject(obj) {
+    if(typeof obj === "string") {
+        try {
+            obj = JSON.parse(obj);
+        } catch(e) {
+        }
+    }
+    
     if(!!obj.$type) {
-        var typename = obj.$type.replace(/.*\+(.+),.+/, "$1");
-        var params = [];
-        for(var p in obj)
-            if(obj.hasOwnProperty(p)) {
-                params.push('ToTypedObject(obj.' + p + ')');
+        //var typename = obj.$type.replace(/.*\+(.+),.+/, "$1");
+        var typename = obj.$type.replace(".", "_").replace("+", "_").replace(/(.+),.+/, "$1");
+        var newObj = eval('new ' + typename + '()');        
+        for(var p in obj) {
+            if(obj.hasOwnProperty(p) && newObj.hasOwnProperty(p)) {
+                if(typeof newObj[p] === "function")
+                    newObj[p](ToTypedObject(obj[p]));
+                else 
+                    newObj[p] = ToTypedObject(obj[p]);
             }
-        return eval('new ' + typename + '(' + params.slice(1).join() + ')');
+        }
+        return newObj;
     }               
     if(obj instanceof Array) {
         var newArr = [];
@@ -148,7 +159,6 @@ $<#  ko.applyBindings(new $(JsClass.GetProperName(tb))({0}));#>;
       _ = tb.DefineWithSource(<[ decl:
         public GetViewModelScript() : string
         {
-          UpdateConstructorParams();
           def sb = System.Text.StringBuilder();          
           _ = sb.AppendLine($toTypedObjectFunction);
           _ = sb.AppendLine($result);
@@ -176,8 +186,6 @@ $<#  ko.applyBindings(new $(JsClass.GetProperName(tb))({0}));#>;
           
           tb.Compile();
       };
-      
-      //tb.Compile();
     }
   }
 }

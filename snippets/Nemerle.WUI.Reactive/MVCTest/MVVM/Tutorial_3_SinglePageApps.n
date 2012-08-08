@@ -13,7 +13,7 @@ using System.Xml.Linq;
 
 namespace MVCTest
 {
-    /*[ViewModel]*/
+    [ViewModel]
     public class SPAViewModel
     {
         [Record]
@@ -49,14 +49,20 @@ namespace MVCTest
                     this.get("#:folder", function() {
                         self.ChosenFolderId(this.params.folder);
                         self.ChosenMailData(null);
-                        $.get("/SPAViewModel/Folder", { folder: this.params.foder }, self.ChosenFolderData);
+                        $.get("/SPAViewModel/Folder", { folder: this.params.folder }, function(result) { 
+                            self.ChosenFolderData(ToTypedObject(result)) 
+                        });
                     });
                     
                     this.get("#:folder/:mailId", function() {
                         self.ChosenFolderId(this.params.folder);
                         self.ChosenMailData(null);
-                        $.get("/SPAViewModel/Mail", { mailId: this.params.mailId }, self.ChosenMailData);
+                        $.get("/SPAViewModel/Mail", { mailId: this.params.mailId }, function(result) { 
+                            self.ChosenMailData(ToTypedObject(result)) 
+                        });
                     });
+                    
+                    this.get('', function() { this.app.runRoute('get', '#Inbox') });
                 }).run();
             #>;
         }
@@ -66,25 +72,26 @@ namespace MVCTest
         }
         
         public GoToMail(mail : Mail) : void {
-            js location.hash = mail.Folder + '/' + mail.Id;
+            js location.hash = mail.Folder() + '/' + mail.Id();
         }
         
         public class Server
         {
-            public Folder(folder : string) : FolderData
-            {
-                FolderData(folder, [
+            allMails : list[Mail] = [
                             Mail(1, "Abbot \u003coliver@smoke-stage.xyz\u003e", "steve@example.com", "May 25, 2011", "Booking confirmation #389629244", "", "Inbox"),
                             Mail(2, "Addison Begoat \u003cupton.oprdrusson@pear-income.xyz\u003e", "steve@example.com", "May 7, 2011", "FW: Associate advice", "", "Inbox"),
-                            Mail(3, "Allistair \u003cleroy72@plane-railway.xyz\u003e", "steve@example.com", "May 19, 2011", "RE: Phone call tomorrow 5 o\u0027clock", "", "Inbox")
-                          ]);
+                            Mail(3, "Allistair \u003cleroy72@plane-railway.xyz\u003e", "steve@example.com", "May 19, 2011", "RE: Phone call tomorrow 5 o\u0027clock", "", "Inbox"),
+                            Mail(4, "(archived) Abbot \u003coliver@smoke-stage.xyz\u003e", "steve@example.com", "May 25, 2011", "Booking confirmation #389629244", "", "Archive"),
+                            Mail(5, "(archived) Addison Begoat \u003cupton.oprdrusson@pear-income.xyz\u003e", "steve@example.com", "May 7, 2011", "FW: Associate advice", "", "Archive")
+                          ];
+                          
+            public Folder(folder : string) : FolderData
+            {
+                FolderData(folder, allMails.Where(m => m.Folder == folder));
             }
             
             public Mail(mailId : int) : Mail
             {
-                def allMails = [Mail(1, "Abbot \u003coliver@smoke-stage.xyz\u003e", "steve@example.com", "May 25, 2011", "Booking confirmation #389629244", "This is an email from Abbot. Mailed on May 25, 2011. Data is sent from server", "Inbox"),
-                                Mail(2, "Addison Begoat \u003cupton.oprdrusson@pear-income.xyz\u003e", "steve@example.com", "May 7, 2011", "FW: Associate advice", "This is an email from Addison Begoat. Mailed on May 7, 2011. Data is sent from server", "Inbox"),
-                                Mail(3, "Allistair \u003cleroy72@plane-railway.xyz\u003e", "steve@example.com", "May 19, 2011", "RE: Phone call tomorrow 5 o\u0027clock", "This is an email from Allistair. Mailed on May 19, 2011. Data is sent from server", "Inbox")];
                 allMails.FirstOrDefault(m => m.Id == mailId);
             }
         }
@@ -93,10 +100,10 @@ namespace MVCTest
     public partial module Views
     {
         [View()]
-        public SPAView(viewModel : SPAViewModel) : XElement
+        public SPAView(viewModel : SPAViewModel) : string
         {
             _ = viewModel;
-            xml <# 
+            <# 
             <div xmlns="">
                 <ul class="folders" data-bind="foreach: Folders">
                     <li data-bind="text: $data, 

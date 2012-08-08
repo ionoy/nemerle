@@ -14,10 +14,9 @@ namespace Nemerle.WUI.Reactive
 {
   public module JsASTBuilder
   {
-      public Build(expr : TExpr, lambdas : Dictionary[string, JsAST.Lambda]) : JsAST
+      public Build(expr : TExpr) : JsAST
       {          
-        def Build = Build(_, lambdas);
-        match(TryToConvertKnownTemplates(expr, lambdas)) {
+        match(TryToConvertKnownTemplates(expr)) {
         | Some(jsast) => jsast
         | _ =>
           match(expr) {
@@ -37,12 +36,7 @@ namespace Nemerle.WUI.Reactive
             | Def                               => Message.Warning(expr.Location, "Def not implemented"); JsAST.NotImpl()
             | DefaultValue                      => JsAST.Void()
             | DefFunctionsIn                    => Message.Warning(expr.Location, "DefFunctionsIn not implemented"); JsAST.NotImpl()
-            | DefValIn(name, val, body)         => 
-                match(val) {
-                | StaticRef(from = from) when lambdas.ContainsKey(from.TypeInfo.Name) => 
-                       JsAST.Seq([JsAST.DefValue(name.Name, lambdas[from.TypeInfo.Name]), Build(body)])                        
-                | _ => JsAST.Seq([JsAST.DefValue(name.Name, Build(val)), Build(body)])
-                }
+            | DefValIn(name, val, body)         => JsAST.Seq([JsAST.DefValue(name.Name, Build(val)), Build(body)])
             | Delayed                           => Message.Warning(expr.Location, "Delayed not implemented"); JsAST.NotImpl()
             | Error                             => Message.Warning(expr.Location, "Error not implemented"); JsAST.NotImpl()
             | EventMember                       => Message.Warning(expr.Location, "EventMember not implemented"); JsAST.NotImpl()
@@ -192,7 +186,7 @@ namespace Nemerle.WUI.Reactive
             JsAST.NotImpl();
       }
       
-      TryToConvertKnownTemplates(expr : TExpr, lambdas : Dictionary[string, JsAST.Lambda]) : option[JsAST]
+      TryToConvertKnownTemplates(expr : TExpr) : option[JsAST]
       { 
           match(expr) {
           | DefValIn(LocalValue as lv, Call(func = MethodRef(meth = getenum, obj = collection)), body) when lv.Name == "enumerator" && getenum.Name == "GetEnumerator" => 
@@ -202,7 +196,7 @@ namespace Nemerle.WUI.Reactive
                 | If(cond = Call(OpCode("=="), Parm(expr = TypeConversion(expr = Call(func = MethodRef(meth = movnxt)))) :: Parm(expr = TypeConversion(expr = Literal(Literal.Bool(true)))) :: [], _), e_then = ifbody) when movnxt.Name == "MoveNext" => 
                     match(ifbody) {
                     | Label(_, TypeConversion(expr = Sequence(DefValIn(body = DefValIn(body = Sequence(_, foreachbody)), name = iterName), _))) => 
-                        Some(JsAST.For(iterName.Name, Build(collection, lambdas), Build(foreachbody, lambdas))) 
+                        Some(JsAST.For(iterName.Name, Build(collection), Build(foreachbody))) 
                     | _ => None()
                     }            
                 | _ => None()

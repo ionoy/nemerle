@@ -7,7 +7,7 @@
     </ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{c930de6f-cdb7-412b-ad69-6e979b919f45}</ProjectGuid>
-    <ProjectTypeGuids>{E3E379DF-F4C6-4180-9B81-6769533ABE47};{349c5851-65df-11da-9384-00065b846f21};{edcc3b85-0bad-11db-bc1a-00112fde8b61}</ProjectTypeGuids>
+    <ProjectTypeGuids>{E53F8FEA-EAE0-44A6-8774-FFD645390401};{349c5851-65df-11da-9384-00065b846f21};{edcc3b85-0bad-11db-bc1a-00112fde8b61}</ProjectTypeGuids>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MVCTest</RootNamespace>
@@ -54,6 +54,11 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Newtonsoft.Json, Version=4.5.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed">
+      <Name>Newtonsoft.Json</Name>
+      <AssemblyName>Newtonsoft.Json.dll</AssemblyName>
+      <HintPath>..\packages\Newtonsoft.Json.4.5.8\lib\net40\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Entity">
@@ -111,9 +116,6 @@
     <Compile Include="Controllers\HomeController.n" />
     <Compile Include="Global.asax.n">
       <DependentUpon>Global.asax</DependentUpon>
-    </Compile>
-    <Compile Include="MVVM\BetterList.n">
-      <SubType>Code</SubType>
     </Compile>
     <Compile Include="MVVM\Tutorial_1_Introduction.n">
       <SubType>Code</SubType>
@@ -277,7 +279,16 @@
     <Content Include="Scripts\sammy.js">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="Views\Home\Tutorial.cshtml">
+    <Content Include="Views\Home\Introduction.cshtml">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Views\Home\ListsAndCollections.cshtml">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Views\Home\LoadingAndSaving.cshtml">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Views\Home\SinglePageApps.cshtml">
       <SubType>Content</SubType>
     </Content>
     <Content Include="Web.config" />

@@ -13,19 +13,27 @@ namespace MVCTest.Controllers
 	{
 	    public Index() : ActionResult 
 	    {
-            Content("" /*Utils.MakePageHtml(BetterListViewModel("", ["Fries", "Eggs Benedict", "Ham", "Cheese"], ["Ham"]), Views.BetterListView)*/);
+            View();
         }
     
-        public Tutorial() : ActionResult
+        public Introduction() : ActionResult
         {
-            //View(Utils.MakePageHtml(IntroductionViewModel("Steve", "Smith"), Views.IntroductionView) : object);
-            def meals = [ListsAndCollectionsViewModel.Meal("Potatoes", 1),
-                         ListsAndCollectionsViewModel.Meal("Tomatoes", 2)];
-            def seats = [ListsAndCollectionsViewModel.SeatReservation("Steve", meals.Head),
-                         ListsAndCollectionsViewModel.SeatReservation("Roger", meals.Head)];
-            def a = LoadingAndSavingViewModel();
-            //View(Utils.MakePageHtml(ListsAndCollectionsViewModel(meals.ToList(), seats.ToList()), Views.ListsAndCollectionsView) : object);
-            View(Utils.MakePageHtml(a, Views.LoadingAndSavingView) : object);
+            View(Utils.MakePageHtml(IntroductionViewModel("John", "Silver"), Views.IntroductionView) : object)
+        }
+        
+        public ListsAndCollections() : ActionResult
+        {
+            View(Utils.MakePageHtml(ListsAndCollectionsViewModel(), Views.ListsAndCollectionsView) : object)
+        }
+        
+        public SinglePageApps() : ActionResult
+        {
+            View(Utils.MakePageHtml(SPAViewModel(), Views.SPAView) : object)
+        }
+        
+        public LoadingAndSaving() : ActionResult
+        {            
+            View(Utils.MakePageHtml(LoadingAndSavingViewModel(), Views.LoadingAndSavingView) : object);
         }
         
     }

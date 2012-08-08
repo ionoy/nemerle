@@ -35,6 +35,9 @@ namespace Nemerle.WUI.Reactive
                     xs.Flatten(x => match(x) {
                                     | JsAST.Array(xs2) => xs2
                                     | x => [x]
+                                    }).Filter(e => match(e) {
+                                        | StaticRef("Nemerle_Core_Nil[T]", _) => false
+                                        | _ => true
                                     }))            
                 }
             }
@@ -278,7 +281,7 @@ $(indent)type: 'POST',
 $(indent)dataType: 'json',
 $(indent)contentType: 'application/json; charset=utf-8',
 $(indent)data: '{..$jsparms}',
-$(indent)success: $(Callback.Write())
+$(indent)success: function(result) { $(Callback.Write())(ToTypedObject(result)) }
 $(indent)})#>
             }
         }    

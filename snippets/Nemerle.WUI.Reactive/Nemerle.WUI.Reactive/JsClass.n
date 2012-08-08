@@ -34,6 +34,7 @@ namespace Nemerle.WUI.Reactive
             def bodyIndent = Indent + "  ";
             def constructorParams = GetConstructorParams();
             def properties = GetProperties(bodyIndent);
+            def computedProperties = GetComputedProperties(bodyIndent);
             def fields = GetFields(bodyIndent);         
             def constructorBody = GetConstructorBody(bodyIndent);
             def staticConstructorBody = GetStaticConstructorBody(Indent);
@@ -53,6 +54,7 @@ $properties
 $fields
 $methods
 $constructorBody
+$computedProperties
 $returning
 $(Indent)}
 $staticConstructorBody#>
@@ -66,8 +68,10 @@ $staticConstructorBody#>
         
         GetProperties(indent : string) : string 
         {            
-            def props = ClassType.GetProperties();
-            def propVal(prop : IProperty) {                
+            def props = ClassType.GetProperties().Filter(p => p.Name != "server").Cast.[PropertyBuilder]();
+            def normalProps = props.Filter(p => !(p.CanRead && !p.CanWrite));
+                                       
+            def propVal(prop : PropertyBuilder) {
                 def isArray = TypeIsArray(prop.GetGetter().ReturnType.TypeInfo);
                 match((IsViewmodel, isArray)) {
                 | (true, true) => "ko.observableArray([])"
@@ -76,13 +80,28 @@ $staticConstructorBody#>
                 | (false, false) => "{}";
                 }
             }
-            def propStrings = props.Map(p => indent + $<#this.$(p.Name) = $(propVal(p))#>);
+            def propStrings = normalProps.Map(p => indent + $<#this.$(p.Name) = $(propVal(p))#>);
+            $<#..$(propStrings; ";\n")#>;
+        }
+        
+        GetComputedProperties(indent : string) : string 
+        {            
+            def props = ClassType.GetProperties().Filter(p => p.Name != "server").Cast.[PropertyBuilder]();
+            def computedProps = props.Filter(p => p.CanRead && !p.CanWrite);
+                                       
+            def propVal(prop : PropertyBuilder) {
+                def computedBody = TranslateMethodBody(prop.GetGetter() :> MethodBuilder, indent);                    
+$<#ko.computed(function() {
+$computedBody
+})#>
+            }
+            def propStrings = computedProps.Map(p => indent + $<#this.$(p.Name) = $(propVal(p))#>);
             $<#..$(propStrings; ";\n")#>;
         }
         
         GetFields(indent : string) : string 
         {
-            def fields = ClassType.GetFields().Where(f => !f.IsStatic && f.Name != "server" && !f.Name.StartsWith("_N_"));
+            def fields = ClassType.GetFields().Where(f => !f.IsStatic && f.Name != "server" && !f.Name.StartsWith("_N_") && f.Name != "__constructorParams");
             def fldVal(fld : IField) {
                 if(TypeIsArray(fld.GetMemType().TypeInfo)) "[]" else "{}";
             }
@@ -104,8 +123,11 @@ $staticConstructorBody#>
         {
             //assert2(false);
             def ctor = Constructor;
-            if(ctor != null)
-                TranslateMethodBody(ctor :> MethodBuilder, Dictionary(), indent);
+            if(ctor != null) {
+                def ctorBody = TranslateMethodBody(ctor :> MethodBuilder, indent);
+                def endIndex = ctorBody.IndexOf("js constructor end");
+                if(endIndex != -1) ctorBody.Substring(0, endIndex - 1) else ctorBody
+            }
             else
                 ""
         }
@@ -115,7 +137,7 @@ $staticConstructorBody#>
             def ctors = ClassType.GetConstructors(BindingFlags.Static | BindingFlags.NonPublic);            
             def ctor = ctors.FirstOrDefault() :> MethodBuilder;
             if(ctor != null)
-                TranslateMethodBody(ctor, Dictionary(), indent);
+                TranslateMethodBody(ctor,indent);
             else
                 ""
         }
@@ -130,7 +152,7 @@ $staticConstructorBody#>
                                    .Filter(m => !m.IsConstructor)
                                    .Map(m => 
 $<#$(indent)this.$(m.Name) = function(..$(methodParms(m))) { 
-$(TranslateMethodBody(m :> MethodBuilder, Dictionary(), indent + "  "))
+$(TranslateMethodBody(m :> MethodBuilder, indent + "  "))
 $(indent)}#>);
 
             $<#..$(methods; "\n")#>
@@ -157,11 +179,11 @@ $(indent)}#>);
             type.IsDerivedFrom(IEnumerableType.TypeInfo) && type.FullName != "System.String";
         }
         
-        public GetMethodJsAST(method : MethodBuilder, lambdas : Dictionary[string, JsAST.Lambda]) : JsAST 
+        public GetMethodJsAST(method : MethodBuilder) : JsAST 
         {        
             match(method.Header.Body) {
             | FunBody.Typed(typedBody) =>
-                mutable jsAst = JsASTBuilder.Build(typedBody, lambdas);
+                mutable jsAst = JsASTBuilder.Build(typedBody);
                 jsAst = JsASTHelper.LabelsToNamedWhile(jsAst);
                 jsAst = JsASTHelper.TransformBottomUp(jsAst);            
                 jsAst = JsASTHelper.FlattenAndRemoveVoids(jsAst);
@@ -176,23 +198,20 @@ $(indent)}#>);
                 }
             | FunBody.Parsed => 
                 def oldEmitDebug = Typer.Manager.Options.EmitDebug;
-                def body = method.Body;
                 Typer.Manager.Options.EmitDebug = false;
                 def methodTyper = Typer(ClassType, null, method, method.Env);
                 methodTyper.RunFullTyping();
                 Typer.Manager.Options.EmitDebug = oldEmitDebug;
-                def jsbody = GetMethodJsAST(method, lambdas);
-                //method.Body = body;                
-                jsbody;
+                GetMethodJsAST(method);
             | _ => 
                 Message.Error("Couldn't type body"); 
                 JsAST.Void();
             }
         }
     
-        public TranslateMethodBody(meth : MethodBuilder, lambdas : Dictionary[string, JsAST.Lambda], indent = "" : string) : string
+        public TranslateMethodBody(meth : MethodBuilder, indent = "" : string) : string
         {           
-            def ast = GetMethodJsAST(meth, lambdas);
+            def ast = GetMethodJsAST(meth);
             ast.Write(indent);
         }
         

@@ -83,10 +83,10 @@ namespace MVCTest
     public partial module Views
     {
         [View()]
-        public LoadingAndSavingView(viewModel : LoadingAndSavingViewModel) : XElement
+        public LoadingAndSavingView(viewModel : LoadingAndSavingViewModel) : string
         {
             _ = viewModel;
-            xml <# 
+            <# 
             <div xmlns="">
                 <h3>Tasks</h3>
 
@@ -108,7 +108,7 @@ namespace MVCTest
 
                 <button data-bind="click: Save">Save</button>
             </div>
-            #>
+          #>
         }
     }
 }

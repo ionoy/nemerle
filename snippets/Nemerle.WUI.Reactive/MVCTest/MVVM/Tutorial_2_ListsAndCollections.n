@@ -12,7 +12,7 @@ using System.Xml.Linq;
 
 namespace MVCTest
 {
-  /*[ViewModel]*/
+  [ViewModel]
   public class ListsAndCollectionsViewModel
   {
     [Record]
@@ -67,10 +67,10 @@ namespace MVCTest
   public partial module Views
   {
     [View()]
-    public ListsAndCollectionsView(viewModel : ListsAndCollectionsViewModel) : XElement
+    public ListsAndCollectionsView(viewModel : ListsAndCollectionsViewModel) : string
     {
       _ = viewModel;
-      xml <# 
+      <# 
         <div xmlns="">
             <h2>Your seat reservations (<span data-bind="text: Seats().length"> </span>)</h2>
 

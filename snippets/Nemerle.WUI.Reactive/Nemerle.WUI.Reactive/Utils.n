@@ -36,7 +36,7 @@ namespace Nemerle.WUI.Reactive
         JsonConvert.SerializeObject(value, JsonSerializerSettings() <- TypeNameHandling = TypeNameHandling.Objects);
     }
         
-    public MakePageHtml[ViewModel](viewModel : ViewModel, makeView : ViewModel -> XElement) : string
+    public MakePageHtml[ViewModel](viewModel : ViewModel, makeView : ViewModel -> string) : string
       where ViewModel: IViewModel
     {
       def testView = makeView(viewModel);            
@@ -49,7 +49,7 @@ namespace Nemerle.WUI.Reactive
   </script>
       #>;
       
-      testView.ToString() + script;
+      testView + script;
     }
   }
 }
