@@ -11,27 +11,76 @@ using Nemerle.Xml;
 using Nemerle.WUI.Reactive;
 using System.Xml.Linq;
 
-namespace Test
+namespace MVCTest
 {
-    [Nemerle.WUI.Reactive.ViewModel]
-    public class TestLambdaViewModel
+    [ViewModel]
+    public class LoadingAndSavingViewModel
     {        
-        TestLambda() : void {
-            MethodWithCallback(s : string => { Console.WriteLine(s); s } );  
+        public class Task
+        {
+            public Title : string { get; set; }
+            public IsDone : bool { get; set; }
+            public _destroy : bool { get; set; }
         }
         
-        MethodWithCallback(cb : string -> string) : void
-        {}        
+        public Tasks : List[Task] { get; set; }
+        public NewTaskText : string { get; set; }
+        public IncompleteTasks : IEnumerable[Task]
+        {
+            get {
+                def result = List();
+                foreach(t in Tasks)
+                    when(!t.IsDone)
+                        result.Add(t);
+                result
+            }
+        }
+        
+        public this() {
+            def a = tasks : IEnumerable[Task] => {
+                Tasks = tasks.ToList();
+            };
+            def b = a;
+        }
+        
+        AddTask() : void {
+            Tasks.Add(Task() <- (Title = NewTaskText, IsDone = false, _destroy = false));
+            NewTaskText = "";
+        }
+        
+        RemoveTask(task : Task) : void {
+            task._destroy = true;
+            _ = Tasks.Remove(task);
+        }        
     }
 
     public partial module Views
     {
         [View()]
-        public LoadingAndSavingView(viewModel : TestLambdaViewModel) : XElement
+        public LoadingAndSavingView(viewModel : LoadingAndSavingViewModel) : XElement
         {
             _ = viewModel;
             xml <# 
             <div xmlns="">
+                <h3>Tasks</h3>
+
+                <form data-bind="submit: AddTask">
+                    Add task: <input data-bind="value: NewTaskText" placeholder="What needs to be done?" />
+                    <button type="submit">Add</button>
+                </form>
+
+                <ul data-bind="foreach: Tasks, visible: Tasks().length > 0">
+                    <li>
+                        <input type="checkbox" data-bind="checked: IsDone" />
+                        <input data-bind="value: Title, disable: IsDone" />
+                        <a href="#" data-bind="click: $root.RemoveTask">Delete</a>
+                    </li> 
+                </ul>
+
+                You have <b data-bind="text: IncompleteTasks().length">&nbsp;</b> incomplete task(s)
+                <span data-bind="visible: IncompleteTasks().length == 0"> - it's beer time!</span>
+
+                <button data-bind="click: Save">Save</button>
             </div>
             #>
         }

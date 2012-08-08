@@ -20,7 +20,7 @@ namespace Nemerle.WUI.Reactive
         public Typer : Typer { get; set; }
         
         IsViewmodel : bool { get { !ClassType.Name.StartsWith("_N_") } }
-        Constructor : IMethod { 
+        public Constructor : IMethod { 
             get {
                 def constructors = ClassType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
                 when(constructors.Length > 1)
@@ -34,14 +34,14 @@ namespace Nemerle.WUI.Reactive
             def bodyIndent = Indent + "  ";
             def constructorParams = GetConstructorParams();
             def properties = GetProperties(bodyIndent);
-            def fields = GetFields(bodyIndent);
-            def staticFields = GetStaticFields(Indent);
+            def fields = GetFields(bodyIndent);         
             def constructorBody = GetConstructorBody(bodyIndent);
+            def staticConstructorBody = GetStaticConstructorBody(Indent);
             def methods = GetMethods(bodyIndent);                        
             def innerClasses = GetNestedClasses();
-            def returning = match(ClassType.Name) {
-                | "Function" => "return apply;"
-                | "FunctionVoid" => "return apply_void;"
+            def returning = match(ClassType.BaseType.Name) {
+                | "Function" => bodyIndent + "return this.apply;"
+                | "FunctionVoid" => bodyIndent + "return this.apply_void;"
                 | _ => ""
             }
             
@@ -51,16 +51,12 @@ $(Indent)function $(GetProperName(ClassType))(..$constructorParams) {
 $(bodyIndent)var self = this;
 $properties
 $fields
-$constructorBody
 $methods
+$constructorBody
 $returning
 $(Indent)}
-$staticFields#>
+$staticConstructorBody#>
         }
-        
-        /*
-
-        */
         
         GetConstructorParams() : list[string] 
         { 
@@ -74,8 +70,8 @@ $staticFields#>
             def propVal(prop : IProperty) {                
                 def isArray = TypeIsArray(prop.GetGetter().ReturnType.TypeInfo);
                 match((IsViewmodel, isArray)) {
-                | (true, true) => "observableArray([])"
-                | (true, false) => "observable()"
+                | (true, true) => "ko.observableArray([])"
+                | (true, false) => "ko.observable()"
                 | (false, true) => "[]";   
                 | (false, false) => "{}";
                 }
@@ -97,25 +93,27 @@ $staticFields#>
         GetStaticFields(indent : string) : string 
         {
             def fields = ClassType.GetFields().Where(f => f.IsStatic);
-            def fldVal(fld : IField) {
-                if(fld.HasBeenAssigned) {
-                    def val = fld.GetValue();
-                    def a = val;
-                    "{}";
-                } else {
-                    "{}";
-                }
-                    
+            def fldVal(_fld : IField) {
+                "{}";                    
             }
             def fieldStrings = fields.Map(f => indent + $<#$(ClassType.Name).$(f.Name) = $(fldVal(f))#>);
             $<#..$(fieldStrings; ";\n")#>;
         }
         
-        GetConstructorBody(indent : string) : string 
+        GetConstructorBody(indent : string) : string
         {
-            def ctors = ClassType.GetConstructors(BindingFlags.Static | BindingFlags.NonPublic);
-            def a = ctors;
-            def ctor = Constructor :> MethodBuilder;
+            //assert2(false);
+            def ctor = Constructor;
+            if(ctor != null)
+                TranslateMethodBody(ctor :> MethodBuilder, Dictionary(), indent);
+            else
+                ""
+        }
+        
+        GetStaticConstructorBody(indent : string) : string 
+        {
+            def ctors = ClassType.GetConstructors(BindingFlags.Static | BindingFlags.NonPublic);            
+            def ctor = ctors.FirstOrDefault() :> MethodBuilder;
             if(ctor != null)
                 TranslateMethodBody(ctor, Dictionary(), indent);
             else
@@ -139,11 +137,19 @@ $(indent)}#>);
         }
         
         GetNestedClasses() : string 
-        {
+        {            
             def nested = ClassType.DeclaredNestedTypes
-                                  .Filter(c => c.Name != "Server" && c.Name != "ServerProxy")
+                                  .Filter(c => c.Name != "Server" && c.Name != "ServerProxy") //Not server
+                                  .Filter(c => !c.Name.StartsWith("_N__N_")) //Not generated class
                                   .Map(c => JsClass(c, Indent, IEnumerableType, Typer).Write());
             $"..$(nested; Environment.NewLine)"
+        }
+        
+        ApplyAttributesToGeneratedClasses() : void
+        {
+            ClassType.DeclaredNestedTypes
+                     .Filter(t => t.Name.StartsWith("_N__N_"))
+                     .Iter(t => t.Ast.AddCustomAttribute(<[ Nemerle.WUI.Reactive.GeneratedClass ]>));
         }
         
         TypeIsArray(type : TypeInfo) : bool 
@@ -176,7 +182,7 @@ $(indent)}#>);
                 methodTyper.RunFullTyping();
                 Typer.Manager.Options.EmitDebug = oldEmitDebug;
                 def jsbody = GetMethodJsAST(method, lambdas);
-                method.Body = body;
+                //method.Body = body;                
                 jsbody;
             | _ => 
                 Message.Error("Couldn't type body"); 

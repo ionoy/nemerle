@@ -112,18 +112,6 @@
     <Compile Include="Global.asax.n">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
-    <Compile Include="MoveToDll\IJsonSupport.n">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MoveToDll\JsAttribute.n">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MoveToDll\JsNameAttribute.n">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MoveToDll\Template.n">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="MVVM\BetterList.n">
       <SubType>Code</SubType>
     </Compile>
@@ -314,7 +302,6 @@
     <Folder Include="Controllers\" />
     <Folder Include="Models\" />
     <Folder Include="MVVM" />
-    <Folder Include="MoveToDll" />
     <Folder Include="Properties\" />
     <Folder Include="Scripts\" />
     <Folder Include="Views\" />

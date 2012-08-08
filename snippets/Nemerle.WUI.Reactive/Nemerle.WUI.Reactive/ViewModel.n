@@ -45,12 +45,8 @@ namespace Nemerle.WUI.Reactive
         tb.AddImplementedInterface(<[ Nemerle.WUI.Reactive.IViewModel ]>);
     }
     
-    public DoTransformBeforeTypedMembers(tb : TypeBuilder, typer : Typer) : void
+    public DoTransformBeforeTypedMembers(_tb : TypeBuilder, _typer : Typer) : void
     {
-        Macros.DefineCTX(typer);
-        assert2(false);
-        def c = JsClass(tb, "", <[ ttype : System.Collections.IEnumerable ]>, typer);
-        _ = c.Write(); //Generate lambdas
     }
     
     public DoTransform(tb : TypeBuilder, typer : Typer) : void
@@ -74,8 +70,8 @@ namespace Nemerle.WUI.Reactive
           def ptb = tb.DefineNestedType(<[ decl:
               class ServerProxy
               {}
-          ]>);          
-          tb.Define(<[ decl: server : ServerProxy = ServerProxy() ]>);
+          ]>);
+          tb.Define(<[ decl: server : ServerProxy { get { ServerProxy() } } ]>);
           
           foreach(member in serverClass.GetMembers()) {
               | method is IMethod when !method.IsConstructor && method.DeclaringType.FullName == serverClass.FullName => 
@@ -106,105 +102,26 @@ namespace Nemerle.WUI.Reactive
           ctb.Compile();
       }
     
-      assert2(false);
+      //assert2(false);
+      def addParams(parms, expr) : PExpr {
+          match(parms) {
+          | head :: tail => 
+          def newExpr = <[ $expr; __constructorParams.Add($(head : dyn)); ]>;
+          addParams(tail, newExpr);                
+          | [] => expr
+          }              
+      }          
       def ienType = <[ ttype : System.Collections.IEnumerable ]>;
       def cl = JsClass(tb, "  ", ienType, typer);
+      def constructor = cl.Constructor;
+      def constructorParams = if(constructor != null) constructor.GetParameters().Map(p => p.Name) else [];
+      def ctor = constructor :> MethodBuilder;
+      def paramAssignments = addParams(constructorParams, ctor.Body);
+      tb.Define(<[ decl: __constructorParams : List[object] = List.[object]() ]>);
+      tb.Define(<[ decl: UpdateConstructorParams() : void {
+          $paramAssignments
+      } ]>);
       def result = cl.Write();
-      def a = result; 
-      
-      foreach(m is MethodBuilder in tb.GetMethods()) {
-        def methodTyper = Typer(tb, null, m, typer.Env);        
-        methodTyper.RunFullTyping();
-      } otherwise {
-        Message.Error("ViewModel doesn't contain any methods to type. Please, at least declare a constructor.");
-      }
-      
-      def getJsLambda(typeInfo, methodName) {
-          def apply = typeInfo.GetMembers().FirstOrDefault(m => m.Name == methodName) :> MethodBuilder;
-          def lambdaBody = GetMethodJsAST(typer, typeInfo, apply, Dictionary());
-          def parms = apply.GetParameters().Map(p => p.Name); 
-          (typeInfo.Name, JsAST.Lambda(typeInfo.Name, parms, lambdaBody))
-      }      
-      def lambdas = tb.DeclaredNestedTypes.Flatten(t => 
-        match(t.BaseClass) {
-        | bc when bc.TypeInfo.Name == "Function"     => [getJsLambda(t, "apply")]
-        | bc when bc.TypeInfo.Name == "FunctionVoid" => [getJsLambda(t, "apply_void")]
-        | _ => []
-        }
-      ).ToDictionary(l => l[0], l => l[1]);
-      
-      def convertMethod(type : TypeInfo, name : string, meth : MethodBuilder, isDependent = true) {       
-        def scriptBody = TranslateMethodBody(typer, type, meth, lambdas);                
-        def code = if (isDependent)
-$<#this.$name = ko.computed(function() {
-   $scriptBody
-   }, this);#>
-        else {
-            def parms = meth.GetParameters().Map(p => p.Name);
-$<#this.$name = function(..$parms) {
-   $scriptBody
-   };#>;
-        }
-        
-        code
-      }
-            
-      def convertMember(member : IMember) {
-        | meth is MethodBuilder when meth.Name.StartsWith("get_") || meth.Name.StartsWith("set_") => null //TODO: Add property IMethod.IsAccessor
-        | meth is MethodBuilder when meth.IsConstructor => null
-        | meth is MethodBuilder => convertMethod(member.DeclaringType, meth.Name, meth, false)
-        | prop is PropertyBuilder when prop.AutoPropertyField.IsSome =>          
-          def arrayTypes = [<[ ttype: Nemerle.Core.list[_] ]>, <[ ttype: System.Collections.Generic.List[_] ]>];
-          def isArray = arrayTypes.Any(t => prop.Getter.ReturnType.TryUnify(t));
-          def ctor = if (isArray) "observableArray([])" else "observable()";
-          $<#this.$(prop.Name) = ko.$ctor;#>;
-          //def paramName = char.ToLower(prop.Name[0]) + prop.Name.Substring(1);
-        | prop is PropertyBuilder when prop.CanRead && !prop.CanWrite => convertMethod(member.DeclaringType, prop.Name, prop.GetGetter() :> MethodBuilder)
-        | _ =>  null          
-      } 
-      
-      def createJsTypeBody(type: TypeInfo) {          
-          def members = type.GetMembers(BF.DeclaredOnly | BF.Instance | BF.Public | BF.NonPublic);
-          def exprs1 = members.RevMap(convertMember).RevFilter(_ != null);
-          
-          def constructor = GetTypeConstructor(type);
-          def constructorParams = if(constructor != null) constructor.GetParameters().Map(p => p.Name) else [];                          
-          def constructorBody = TranslateMethodBody(typer, type, constructor :> MethodBuilder, lambdas);
-          
-          def ctor = constructor :> MethodBuilder;
-          def addParams(parms, expr) : PExpr {
-              match(parms) {
-              | head :: tail => 
-                def newExpr = <[ $expr; __constructorParams.Add($(head : dyn)); ]>;
-                addParams(tail, newExpr);                
-              | [] => expr
-              }              
-          }          
-          
-          def assignments = addParams(constructorParams, ctor.Body);
-          ctor.Body = <[ $assignments ]>;          
-          
-          def tb = type :> TypeBuilder;
-          tb.Define(<[ decl: __constructorParams : List[object] = List.[object]() ]>);
-          tb.Compile();
-          
-          def header = $<#function $(type.Name)(..$(constructorParams)) { #>;          
-          def body = $<#  ..$(exprs1; "\n  ") #>;
-          def footer = <#}; #>;
-          
-$<#
-$header
-var self = this;
-$body
-$constructorBody
-$footer
-#>
-      }
-      
-      def vmTypeBody = createJsTypeBody(tb);
-      def otherTypeBodies = tb.GetNestedTypes(BF.Public|BF.NonPublic|BF.Instance)
-                              .Filter(t => t.Name != "Server")
-                              .Map(t => <[ sb.AppendLine($(createJsTypeBody(t))) ]>);
       
       def toTypedObjectFunction = 
 <#
@@ -225,68 +142,42 @@ function ToTypedObject(obj) {
     }
     return obj;
 };
-#>;
+#>;        
       def applyBindings = 
-$<#    
-    ko.applyBindings(new $(tb.Name)({0}));
-#>;
+$<#  ko.applyBindings(new $(JsClass.GetProperName(tb))({0}));#>;
       _ = tb.DefineWithSource(<[ decl:
         public GetViewModelScript() : string
         {
-          def sb = System.Text.StringBuilder();
+          UpdateConstructorParams();
+          def sb = System.Text.StringBuilder();          
           _ = sb.AppendLine($toTypedObjectFunction);
-          { ..$otherTypeBodies }
-          _ = sb.AppendLine($vmTypeBody);
+          _ = sb.AppendLine($result);
           def paramList = __constructorParams.Map(obj => "ToTypedObject(" + Utils.ToJson(obj) + ")");
           _ = sb.AppendLine(string.Format($applyBindings, $"..$(paramList)"));
           sb.ToString()
         }
         ]>);
         
-    }    
+      def lambdaMeth = tb.DefineAndReturn(<[ decl: 
+        public GetLambdaScript() : string
+        { "" } ]>) :> MethodBuilder;
         
-    public GetMethodJsAST(typer : Typer, type : TypeInfo, method : MethodBuilder, lambdas : Dictionary[string, JsAST.Lambda]) : JsAST 
-    {        
-        match(method.Header.Body) { 
-        | FunBody.Typed(typedBody) => 
-            mutable jsAst = JsASTBuilder.Build(typedBody, lambdas);
-            jsAst = JsASTHelper.LabelsToNamedWhile(jsAst);
-            jsAst = JsASTHelper.TransformBottomUp(jsAst);            
-            jsAst = JsASTHelper.FlattenAndRemoveVoids(jsAst);
-            jsAst = JsASTHelper.RemoveEmptyBranches(jsAst);
-            
-            when(!(method.Header.ReturnType is FixedType.Void()) && !method.IsConstructor)
-                jsAst = JsASTHelper.MakeReturn(jsAst);
-                
-            jsAst;        
-        | FunBody.Parsed => 
-            def oldEmitDebug = typer.Manager.Options.EmitDebug;
-            def body = method.Body;
-            typer.Manager.Options.EmitDebug = false;
-            def methodTyper = Typer(type :> TypeBuilder, null, method, method.Env);
-            methodTyper.RunFullTyping();
-            typer.Manager.Options.EmitDebug = oldEmitDebug;
-            def jsbody = GetMethodJsAST(typer, type, method, lambdas);
-            method.Body = body;
-            jsbody;
-        | _ => 
-            Message.Error("Couldn't type body"); 
-            JsAST.Void();
-        }
+      tb.Manager.TypeTreeBuildFinish += m => {
+          def lambdas = tb.DeclaredNestedTypes
+                          .Filter(t => t.Name.StartsWith("_N__N_"))
+                          .Map(t => JsClass(t, "  ", ienType, typer).Write());
+          def lambdas = $"..$(lambdas; Environment.NewLine)";
+          
+          lambdaMeth.Body = <[ 
+            def sb = System.Text.StringBuilder();
+            sb.AppendLine($lambdas);
+            sb.ToString()
+          ]>;
+          
+          tb.Compile();
+      };
+      
+      //tb.Compile();
     }
-    
-    public TranslateMethodBody(typer : Typer, type : TypeInfo, meth : MethodBuilder, lambdas : Dictionary[string, JsAST.Lambda]) : string
-    {           
-        def ast = GetMethodJsAST(typer, type, meth, lambdas);
-        ast.Write();
-    }
-    
-    private GetTypeConstructor(type : TypeInfo) : IMethod
-    {
-        def constructors = type.GetConstructors(BF.Public | BF.Instance);
-        when(constructors.Length > 1)
-              Message.Error(type.Location, "Multiple constructors are not supported");  
-        constructors.FirstOrDefault()
-    }    
   }
 }

@@ -35,7 +35,13 @@ namespace MVCTest
                 result
             }
         }
-                
+        
+        public this() {
+            server.Load(tasks => {
+                Tasks = tasks.ToList();
+            });
+        }
+        
         AddTask() : void {
             Tasks.Add(Task() <- (Title = NewTaskText, IsDone = false, _destroy = false));
             NewTaskText = "";
@@ -56,11 +62,10 @@ namespace MVCTest
         {
             public Save(tasks : IEnumerable[Task]) : string
             {
-                def answer = $<#
+                $<#
                 Server received $(tasks.Count()) task(s). 
                 $(tasks.Count(t => t.IsDone)) of which are marked as done. 
                 $(tasks.Count(t => t._destroy)) of which are marked for deletion.#>;
-                answer
             }
             
             public Load() : IEnumerable[Task]

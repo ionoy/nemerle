@@ -16,15 +16,12 @@ namespace Nemerle.WUI.Reactive
       public Convert(call : TExpr.Call, builder : TExpr -> JsAST) : JsAST
       {      
         def result = match(call) {
-        | Call(MethodRef(obj = FieldMember(This, fld), meth = meth), parms, _) when fld.Name == "server" =>       
+        | Call(MethodRef(obj = Call(MethodRef(meth = serverMeth, obj = obj), _, _), meth = meth), parms, _) when serverMeth.Name == "get_server" && obj is TExpr.This =>       
             def parameters = if(parms.Length > 0) parms.Zip(meth.GetParameters()).Take(parms.Length - 1).Map((cp, mp) => (mp.name, builder(cp.expr))) else [];
-            def callback = if(parms.Length > 0)
-                            builder(parms.Last().expr) 
-                           else 
-                            JsAST.Void();
+            def callback = if(parms.Length > 0) builder(parms.Last().expr) else JsAST.Void();
             match(callback) { 
-            | Seq(DefValue as dv :: cb :: []) => JsAST.Seq([dv, JsAST.ServerCall(meth.Name, fld.DeclaringType.Name, parameters, cb)])
-            | _ => JsAST.ServerCall(meth.Name, fld.DeclaringType.Name, parameters, callback)
+            | Seq(DefValue as dv :: cb :: []) => JsAST.Seq([dv, JsAST.ServerCall(meth.Name, serverMeth.DeclaringType.Name, parameters, cb)])
+            | _ => JsAST.ServerCall(meth.Name, serverMeth.DeclaringType.Name, parameters, callback)
             }            
         | Call(MethodRef(obj = o, meth = meth), parms, _) => ConvertMethod(o.Type.TypeInfo, builder(o), meth, parms.Map(p => builder(p.expr)))
         | Call(StaticRef(from = fromType, mem = meth) as left, parms, _) => ConvertMethod(fromType.TypeInfo, builder(left), meth, parms.Map(p => builder(p.expr)))

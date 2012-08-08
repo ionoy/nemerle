@@ -113,8 +113,8 @@ $(Body.Write("  "))
         | DefValue       { Name : string; Val : JsAST;
             public override Write(_indent = "" : string) : string {
                 match(this) {
-                | DefValue(name, Void)                         => $"var $name"      
-                | DefValue(name, val)                          => $"var $name = $(val.Write())"   
+                | DefValue(name, Void)                         => $<#var $(name.Replace(".", "_"))#>
+                | DefValue(name, val)                          => $<#var $(name.Replace(".", "_")) = $(val.Write())#>
                 }
             }
             public override Transform() : JsAST {
@@ -202,7 +202,7 @@ $(Body.Write())
         }
         | LocalRef       { Name : string;
             public override Write(_ = "" : string) : string {
-                $"$Name"
+                $<#$(Name.Replace(".", "_"))#>
             }
         }
         | MethodRef      { Obj : JsAST; Method : string;
@@ -271,8 +271,15 @@ break;#>
         }
         | ServerCall     { MethodName : string; TypeName : string; Parameters : list[string * JsAST]; Callback : JsAST;
             public override Write(indent = "" : string) : string {
-                def jsparms = Parameters.Map((name, val) => $"$name : $(val.Write())");
-                $<#$$.get('/$TypeName/$MethodName', {..$jsparms}, $(Callback.Write()))#>;
+                def jsparms = Parameters.Map((name, val) => $"$name :' + ko.toJSON($(val.Write())) + '");
+$<#$.ajax({
+$(indent)url: '/$TypeName/$MethodName',
+$(indent)type: 'POST',
+$(indent)dataType: 'json',
+$(indent)contentType: 'application/json; charset=utf-8',
+$(indent)data: '{..$jsparms}',
+$(indent)success: $(Callback.Write())
+$(indent)})#>
             }
         }    
         | Ternary        { Cond : JsAST; Body : JsAST; ElseBody : JsAST;
@@ -354,7 +361,7 @@ $(Body.Write("  "))
         public static AllowedForAssignment : list[Type] = [typeof(JsAST.Call), typeof(JsAST.MethodRef), typeof(JsAST.LocalRef), 
                                                            typeof(JsAST.Literal), typeof(JsAST.Code), typeof(JsAST.Void), 
                                                            typeof(JsAST.Ternary), typeof(JsAST.NotImpl), typeof(JsAST.Lambda),
-                                                           typeof(JsAST.Array)];
+                                                           typeof(JsAST.Array), typeof(JsAST.StaticRef), typeof(JsAST.This)];
                                          
         public static Recurse(ast : JsAST, selector : JsAST -> JsAST, topdown : bool = true) : JsAST 
         {

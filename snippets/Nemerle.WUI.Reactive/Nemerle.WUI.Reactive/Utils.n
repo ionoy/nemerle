@@ -35,25 +35,7 @@ namespace Nemerle.WUI.Reactive
     {
         JsonConvert.SerializeObject(value, JsonSerializerSettings() <- TypeNameHandling = TypeNameHandling.Objects);
     }
-
-    public MakeAndShowPage[ViewModel](pagePath  : string, 
-                                      viewModel : ViewModel, 
-                                      makeView  : ViewModel -> XElement) : void
-      where ViewModel: IViewModel
-    {
-      def path = MakePage(pagePath, viewModel, makeView);
-      _ = Process.Start(path);
-    }
-    
-    /// returns page path
-    MakePage[ViewModel](pagePath : string, viewModel : ViewModel, makeView : ViewModel -> XElement) : string
-      where ViewModel: IViewModel
-    {
-      def html = MakePageHtml(viewModel, makeView);
-      File.WriteAllText(pagePath, html);
-      pagePath
-    }
-    
+        
     public MakePageHtml[ViewModel](viewModel : ViewModel, makeView : ViewModel -> XElement) : string
       where ViewModel: IViewModel
     {
@@ -61,15 +43,13 @@ namespace Nemerle.WUI.Reactive
       def script = $<#
   <script type='text/javascript'>
     /*<![CDATA[*/
+    $(viewModel.GetLambdaScript())
     $(viewModel.GetViewModelScript())
     /*]]>*/
   </script>
       #>;
       
       testView.ToString() + script;
-      /*page.SetContent("Script", script);
-      
-      page.ToString();*/
     }
   }
 }
